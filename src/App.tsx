@@ -1,0 +1,76 @@
+import { useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { ThemeProvider } from "./components/System/ThemeManager"
+import { AppSidebar } from "./components/SideBars/AppSidebar"
+import { CanvasView } from "./components/MainViews/CanvasView"
+import { SpaceLibrary } from "./components/MainViews/SpaceLibrary"
+import { MetricsView } from "./components/MainViews/MetricsView"
+import { SettingsView } from "./components/MainViews/SettingsView"
+import type { ActiveView } from "./types"
+
+function MainAppContent() {
+  const [activeView, setActiveView] = useState<ActiveView>('canvas')
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
+
+  const handleViewChange = (view: ActiveView) => {
+    setActiveView(view)
+  }
+
+  const renderContent = () => {
+    switch (activeView) {
+      case 'canvas':
+        return <CanvasView isSidebarExpanded={isSidebarExpanded} />
+      case 'library':
+        return <SpaceLibrary />
+      case 'metrics':
+        return <MetricsView />
+      case 'settings':
+        return <SettingsView />
+      default:
+        return <CanvasView isSidebarExpanded={isSidebarExpanded} />
+    }
+  }
+
+  return (
+    <div className="relative h-screen w-screen overflow-hidden bg-gray-50">
+      {/* Main content - full screen */}
+      <main className="absolute inset-0 flex flex-col overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeView}
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              // Apply padding for all views except canvas (which is full-screen)
+              paddingLeft: activeView === 'canvas'
+                ? 0
+                : (isSidebarExpanded ? '316px' : '116px')
+            }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className={activeView === 'canvas' ? 'flex-1 h-full' : 'flex-1 overflow-auto'}
+          >
+            {renderContent()}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {/* Main Sidebar - floating above content */}
+      <AppSidebar
+        activeView={activeView}
+        onViewChange={handleViewChange}
+        isExpanded={isSidebarExpanded}
+        onExpandedChange={setIsSidebarExpanded}
+      />
+    </div>
+  )
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <MainAppContent />
+    </ThemeProvider>
+  )
+}

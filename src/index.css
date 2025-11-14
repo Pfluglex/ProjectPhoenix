@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* App brand colors */
+    --app-brick: #9A3324;
+    --app-black: #000000;
+    --app-medium-gray: #707372;
+    --app-light-gray: #C7C9C7;
+    --app-white: #FFFFFF;
+    --app-dark-blue: #003C71;
+    --app-sky-blue: #00A9E0;
+    --app-olive-green: #67823A;
+    --app-chartreuse: #B5BD00;
+    --app-orange: #F2A900;
+    --app-salmon: #f16555ff;
+  }
+
+  * {
+    @apply border-gray-200;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+      monospace;
+  }
+}
+
+@layer utilities {
+  .glass-morphism {
+    @apply bg-white/50 backdrop-blur-xl border-white/20;
+  }
+
+  .glass-morphism-strong {
+    @apply bg-white/70 backdrop-blur-2xl border-white/30;
+  }
+
+  .glass-morphism-subtle {
+    @apply bg-white/30 backdrop-blur-lg border-white/15;
+  }
+}
