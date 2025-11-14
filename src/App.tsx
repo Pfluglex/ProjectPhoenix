@@ -49,7 +49,7 @@ function MainAppContent() {
             }}
             exit={{ opacity: 0, scale: 1.02 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className={activeView === 'canvas' ? 'flex-1 h-full' : 'flex-1 overflow-auto'}
+            className={activeView === 'canvas' ? 'w-full h-full absolute inset-0' : 'flex-1 overflow-auto'}
           >
             {renderContent()}
           </motion.div>

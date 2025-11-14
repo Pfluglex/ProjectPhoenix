@@ -11,9 +11,11 @@ interface SpacePaletteProps {
     position: { x: number; y: number };
     zoom: number;
   };
+  snapInterval?: number;
+  onSnapIntervalChange?: (interval: number) => void;
 }
 
-export function SpacePalette({ isSidebarExpanded, canvasInfo }: SpacePaletteProps) {
+export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, onSnapIntervalChange }: SpacePaletteProps) {
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasPalette.light;
   const [spaces, setSpaces] = useState<SpaceDefinition[]>([]);
@@ -92,7 +94,7 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo }: SpacePaletteProp
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Space Library</h2>
 
         {/* Search */}
-        <div className="relative">
+        <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
@@ -101,6 +103,29 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo }: SpacePaletteProp
             placeholder="Search spaces..."
             className={`w-full pl-10 pr-3 py-2 ${theme.search.bg} border ${theme.search.border} rounded-md focus:outline-none focus:ring-2 ${theme.search.focusRing} text-sm ${theme.search.backdropBlur}`}
           />
+        </div>
+
+        {/* Snap Interval */}
+        <div>
+          <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+            <span>Snap to Grid</span>
+            <span className="text-gray-500">{snapInterval}'</span>
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="30"
+            step="1"
+            value={snapInterval}
+            onChange={(e) => onSnapIntervalChange?.(Number(e.target.value))}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          />
+          <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+            <span>1'</span>
+            <span>5'</span>
+            <span>10'</span>
+            <span>30'</span>
+          </div>
         </div>
       </div>
 
@@ -154,7 +179,12 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo }: SpacePaletteProp
                               initial={{ opacity: 0, x: -10 }}
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: index * 0.03 }}
-                              className={`p-2 ${theme.spaceItem.hover} rounded cursor-pointer transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder}`}
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('application/json', JSON.stringify(space));
+                                e.dataTransfer.effectAllowed = 'copy';
+                              }}
+                              className={`p-2 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder}`}
                             >
                               <div className="flex items-center gap-2">
                                 <div

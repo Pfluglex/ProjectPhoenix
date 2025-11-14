@@ -3,20 +3,28 @@ import { Stage, Layer, Line, Circle, Text } from 'react-konva';
 import Konva from 'konva';
 import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { useTheme } from '../System/ThemeManager';
+import type { SpaceInstance } from '../../types';
+import { SpaceBlock } from './SpaceBlock';
 
 interface Canvas2DProps {
   width?: number;
   height?: number;
+  placedSpaces?: SpaceInstance[];
   onCanvasStateChange?: (state: { position: { x: number; y: number }; zoom: number }) => void;
+  onSpaceDrop?: (space: SpaceInstance) => void;
+  onSpaceMove?: (instanceId: string, x: number, y: number) => void;
+  snapInterval?: number;
 }
 
-export function Canvas2D({ width = 1200, height = 800, onCanvasStateChange }: Canvas2DProps) {
+export function Canvas2D({ width = 1200, height = 800, placedSpaces = [], onCanvasStateChange, onSpaceDrop, onSpaceMove, snapInterval = 5 }: Canvas2DProps) {
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasControls.light;
   const stageRef = useRef<Konva.Stage>(null);
   const [stageSize, setStageSize] = useState({ width, height });
   const [stageScale, setStageScale] = useState(1.5); // Default zoom 150%
   const [stagePos, setStagePos] = useState({ x: width / 2, y: height / 2 });
+  const [isDraggingFromPalette, setIsDraggingFromPalette] = useState(false);
+  const [isDraggingSpace, setIsDraggingSpace] = useState(false);
 
   // Grid settings
   const GRID_MINOR = 5; // 5-foot grid
@@ -101,6 +109,45 @@ export function Canvas2D({ width = 1200, height = 800, onCanvasStateChange }: Ca
   const resetView = () => {
     setStageScale(1.5);
     setStagePos({ x: stageSize.width / 2, y: stageSize.height / 2 });
+  };
+
+  // Snap to grid based on snapInterval
+  const snapToGrid = (value: number) => {
+    return Math.round(value / snapInterval) * snapInterval;
+  };
+
+  // Handle drop from palette
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+
+    const spaceData = e.dataTransfer.getData('application/json');
+    if (!spaceData || !onSpaceDrop) return;
+
+    const spaceTemplate = JSON.parse(spaceData);
+
+    // Get drop position in the container
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Convert screen coordinates to canvas coordinates
+    const canvasX = (x - stagePos.x) / stageScale;
+    const canvasY = (y - stagePos.y) / stageScale;
+
+    // Snap to grid
+    const snappedX = snapToGrid(canvasX);
+    const snappedY = snapToGrid(canvasY);
+
+    // Create space instance
+    const newSpace: SpaceInstance = {
+      ...spaceTemplate,
+      instanceId: `${spaceTemplate.id}-${Date.now()}`,
+      templateId: spaceTemplate.id,
+      position: { x: snappedX, y: snappedY, z: 0 },
+      rotation: 0,
+    };
+
+    onSpaceDrop(newSpace);
   };
 
   // Generate grid lines
@@ -192,7 +239,22 @@ export function Canvas2D({ width = 1200, height = 800, onCanvasStateChange }: Ca
   };
 
   return (
-    <div className="relative w-full h-full bg-white">
+    <div
+      className="relative w-full h-full bg-white"
+      onDrop={(e) => {
+        handleDrop(e);
+        setIsDraggingFromPalette(false);
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!isDraggingFromPalette) {
+          setIsDraggingFromPalette(true);
+        }
+      }}
+      onDragLeave={() => {
+        setIsDraggingFromPalette(false);
+      }}
+    >
       {/* Zoom Controls */}
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
         <button
@@ -227,13 +289,21 @@ export function Canvas2D({ width = 1200, height = 800, onCanvasStateChange }: Ca
         scaleY={stageScale}
         x={stagePos.x}
         y={stagePos.y}
-        draggable
+        draggable={!isDraggingFromPalette && !isDraggingSpace}
         onWheel={handleWheel}
+        onDragStart={(e) => {
+          // Only allow dragging if not dragging from palette or space
+          if (isDraggingFromPalette || isDraggingSpace) {
+            e.target.stopDrag();
+          }
+        }}
         onDragEnd={(e) => {
-          setStagePos({
-            x: e.target.x(),
-            y: e.target.y(),
-          });
+          if (!isDraggingFromPalette && !isDraggingSpace) {
+            setStagePos({
+              x: e.target.x(),
+              y: e.target.y(),
+            });
+          }
         }}
       >
         <Layer>
@@ -283,6 +353,23 @@ export function Canvas2D({ width = 1200, height = 800, onCanvasStateChange }: Ca
 
           {/* Axis Labels */}
           {generateAxisLabels()}
+
+          {/* Placed Spaces */}
+          {placedSpaces.map((space) => (
+            <SpaceBlock
+              key={space.instanceId}
+              space={space}
+              scale={stageScale}
+              snapInterval={snapInterval}
+              onDragStart={() => setIsDraggingSpace(true)}
+              onDragEnd={(x, y) => {
+                if (onSpaceMove) {
+                  onSpaceMove(space.instanceId, x, y);
+                }
+                setIsDraggingSpace(false);
+              }}
+            />
+          ))}
         </Layer>
       </Stage>
     </div>
