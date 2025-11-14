@@ -5,6 +5,8 @@ import type { SpaceInstance } from '../../types';
 import { ThreeEvent, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import * as LucideIcons from 'lucide-react';
+import { SpaceControls } from './SpaceControls';
+import { useSpring, animated, config } from '@react-spring/three';
 
 interface SpaceBlock3DProps {
   space: SpaceInstance;
@@ -18,12 +20,14 @@ interface SpaceBlock3DProps {
     rotation: number,
     scale: { x: number; y: number; z: number }
   ) => void;
+  onDelete?: () => void;
 }
 
-export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragStart, onDragEnd, onMove, onTransform }: SpaceBlock3DProps) {
+export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragStart, onDragEnd, onMove, onTransform, onDelete }: SpaceBlock3DProps) {
   const meshRef = useRef<Mesh>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [controlsHovered, setControlsHovered] = useState(false);
   const { camera, gl } = useThree();
   const planeRef = useRef(new Plane(new Vector3(0, 1, 0), 0));
   const dragOffsetRef = useRef<{ x: number; z: number }>({ x: 0, z: 0 });
@@ -34,16 +38,26 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
 
   // Y position is half the height (so base sits on y=0)
   const height = 1; // Fixed height for now
-  const [position, setPosition] = useState<[number, number, number]>([
+  const [targetPosition, setTargetPosition] = useState<[number, number, number]>([
     space.position.x,
     0,
     space.position.z,
   ]);
 
+  // Animated position with spring physics
+  const { position, yOffset } = useSpring({
+    position: targetPosition,
+    yOffset: isDragging ? 5 : (hovered ? 2 : 0), // Subtle hover, more lift when grabbed
+    config: isDragging
+      ? { tension: 500, friction: 15 } // Super responsive during drag
+      : { tension: 300, friction: 20 }, // Fast and bouncy when snapping to grid
+    immediate: isDragging, // No interpolation during drag for instant response
+  });
+
   // Sync local position with space prop when not dragging
   useEffect(() => {
     if (!isDragging) {
-      setPosition([space.position.x, 0, space.position.z]);
+      setTargetPosition([space.position.x, 0, space.position.z]);
     }
   }, [space.position.x, space.position.z, isDragging]);
 
@@ -64,7 +78,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
 
       if (intersection) {
         // Apply the drag offset to maintain relative position
-        setPosition([
+        setTargetPosition([
           intersection.x - dragOffsetRef.current.x,
           0,
           intersection.z - dragOffsetRef.current.z
@@ -87,10 +101,10 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
       const zOffset = (zIntervals % 2 !== 0) ? snapInterval / 2 : 0;
 
       // Snap the corner to grid, then add offset for center
-      const snappedX = snapToGrid(position[0] - xOffset) + xOffset;
-      const snappedZ = snapToGrid(position[2] - zOffset) + zOffset;
+      const snappedX = snapToGrid(targetPosition[0] - xOffset) + xOffset;
+      const snappedZ = snapToGrid(targetPosition[2] - zOffset) + zOffset;
 
-      setPosition([snappedX, 0, snappedZ]);
+      setTargetPosition([snappedX, 0, snappedZ]);
 
       if (onMove) {
         onMove(snappedX, 0, snappedZ);
@@ -108,11 +122,16 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
 
   // Create extruded rounded rectangle geometry
   const geometry = useMemo(() => {
-    const bevelSize = 5;
+    // Calculate bevel size based on smallest dimension
+    const minDimension = Math.min(space.width, space.depth);
+    const bevelSize = minDimension <= 15 ? Math.max(1, minDimension * 0.15) : 5;
+
     // Shrink the base shape by the bevel size so final dimensions match space.width/depth
     const width = space.width - (bevelSize * 2);
     const depth = space.depth - (bevelSize * 2);
-    const radius = 2; // Corner radius
+
+    // Corner radius scales with bevel - smaller bevels need smaller corners
+    const radius = Math.max(0.5, bevelSize * 0.4);
 
     // Create a rounded rectangle shape
     const shape = new Shape();
@@ -134,8 +153,8 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
       steps: 1,
       depth: height,
       bevelEnabled: true,
-      bevelThickness: 5,
-      bevelSize: 5,
+      bevelThickness: bevelSize,
+      bevelSize: bevelSize,
       bevelSegments: 10,
     };
 
@@ -148,8 +167,8 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
     // Calculate offset between click point and object center
     const clickPoint = e.point;
     dragOffsetRef.current = {
-      x: clickPoint.x - position[0],
-      z: clickPoint.z - position[2],
+      x: clickPoint.x - targetPosition[0],
+      z: clickPoint.z - targetPosition[2],
     };
 
     setIsDragging(true);
@@ -160,8 +179,39 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
     }
   };
 
+  const handleRotate = () => {
+    // Rotate 90 degrees (convert to radians)
+    const newRotation = ((space.rotation || 0) + Math.PI / 2) % (Math.PI * 2);
+
+    if (onTransform) {
+      onTransform(
+        { x: targetPosition[0], y: targetPosition[1], z: targetPosition[2] },
+        newRotation,
+        { x: 1, y: 1, z: 1 }
+      );
+    }
+  };
+
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete();
+    }
+  };
+
+  const handleResize = () => {
+    // TODO: Implement resize functionality
+    console.log('Resize clicked for', space.name);
+  };
+
+  // Combine position with yOffset
+  const animatedPosition = position.to((x, y, z) => [x, y, z]) as any;
+
   return (
-    <group position={position} rotation={[0, space.rotation || 0, 0]}>
+    <animated.group
+      position={animatedPosition}
+      position-y={yOffset as any}
+      rotation={[0, space.rotation || 0, 0]}
+    >
       {/* The 3D extruded rounded rectangle */}
       <mesh
         ref={meshRef}
@@ -179,6 +229,31 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
           metalness={0.1}
         />
       </mesh>
+
+      {/* Hover controls (appears on hover) */}
+      {(hovered || controlsHovered) && !isDragging && (
+        <Html
+          position={[0, height + 1, 0]}
+          center
+          sprite
+          zIndexRange={[100, 100]}
+          style={{
+            pointerEvents: 'auto',
+          }}
+        >
+          <div
+            onMouseEnter={() => setControlsHovered(true)}
+            onMouseLeave={() => setControlsHovered(false)}
+            style={{ paddingBottom: '20px' }}
+          >
+            <SpaceControls
+              onRotate={handleRotate}
+              onDelete={handleDelete}
+              onResize={handleResize}
+            />
+          </div>
+        </Html>
+      )}
 
       {/* Space label (HTML overlay) - scale based on space size */}
       <Html
@@ -230,6 +305,6 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
           </div>
         )}
       </Html>
-    </group>
+    </animated.group>
   );
 }

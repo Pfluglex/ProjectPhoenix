@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Settings } from 'lucide-react';
 import { loadSpacesFromCSV } from '../../lib/csvParser';
 import type { SpaceDefinition } from '../../types';
 import { useTheme } from '../System/ThemeManager';
@@ -26,6 +26,7 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['technology', 'trades', 'band'])
   );
+  const [activePanel, setActivePanel] = useState<'library' | 'properties'>('library');
 
   useEffect(() => {
     loadSpacesFromCSV('/data/cte-spaces.csv').then((loadedSpaces) => {
@@ -80,20 +81,49 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
     );
   }
 
+  const panelWidth = 320; // 80 * 4 (w-80)
+  const peekAmount = 60; // How much the back panel shows (in pixels)
+
   return (
     <motion.div
-      className={`absolute top-4 w-80 ${theme.container.bg} ${theme.container.backdropBlur} rounded-lg ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
+      className="absolute top-4"
       style={{
-        left: leftOffset,
-        height: 'calc(100vh - 2rem)'
+        height: 'calc(100vh - 2rem)',
+        width: panelWidth + peekAmount
       }}
       initial={false}
       animate={{ left: leftOffset }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
-      {/* Header */}
-      <div className={`p-4 border-b ${theme.header.divider} flex-shrink-0`}>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Space Library</h2>
+      {/* Library Panel */}
+      <motion.div
+        className={`absolute h-full ${theme.container.bg} ${theme.container.backdropBlur} rounded-lg ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
+        style={{
+          width: panelWidth,
+          zIndex: activePanel === 'library' ? 2 : 1
+        }}
+        animate={{
+          left: activePanel === 'library' ? 0 : peekAmount
+        }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
+      >
+        {/* Header - clickable when underneath */}
+        <div
+          className={`p-4 border-b ${theme.header.divider} flex-shrink-0 ${activePanel === 'properties' ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+          onClick={() => activePanel === 'properties' && setActivePanel('library')}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-800">Space Library</h2>
+            {activePanel === 'library' && (
+              <button
+                onClick={() => setActivePanel('properties')}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                title="Open Properties"
+              >
+                <Settings className="w-4 h-4 text-gray-600" />
+              </button>
+            )}
+          </div>
 
         {/* Search */}
         <div className="relative">
@@ -199,55 +229,110 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
         </p>
       </div>
 
-      {/* Controls at bottom */}
-      <div className={`p-3 border-t ${theme.footer.divider} ${theme.footer.bg} flex-shrink-0 space-y-3`}>
-        {/* Tag Display Toggle */}
-        <div>
-          <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
-            <span>Label Style</span>
-            <span className="text-gray-500">{labelMode === 'text' ? 'Text' : 'Icon'}</span>
-          </label>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-600">Text</span>
-            <button
-              onClick={() => onLabelModeChange?.(labelMode === 'text' ? 'icon' : 'text')}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                labelMode === 'icon' ? 'bg-blue-500' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  labelMode === 'icon' ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-            <span className="text-xs text-gray-600">Icon</span>
+      </motion.div>
+
+      {/* Properties Panel */}
+      <motion.div
+        className={`absolute h-full ${theme.container.bg} ${theme.container.backdropBlur} rounded-lg ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
+        style={{
+          width: panelWidth,
+          zIndex: activePanel === 'properties' ? 2 : 1
+        }}
+        animate={{
+          left: activePanel === 'properties' ? 0 : peekAmount
+        }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
+      >
+        {/* Header - clickable when underneath */}
+        <div
+          className={`p-4 border-b ${theme.header.divider} flex-shrink-0 ${activePanel === 'library' ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+          onClick={() => activePanel === 'library' && setActivePanel('properties')}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-800">Properties</h2>
+            {activePanel === 'properties' && (
+              <button
+                onClick={() => setActivePanel('library')}
+                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                title="Back to Library"
+              >
+                <Search className="w-4 h-4 text-gray-600" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Snap Interval */}
-        <div>
-          <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
-            <span>Snap to Grid</span>
-            <span className="text-gray-500">{snapInterval}'</span>
-          </label>
-          <input
-            type="range"
-            min="1"
-            max="30"
-            step="1"
-            value={snapInterval}
-            onChange={(e) => onSnapIntervalChange?.(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-          <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-            <span>1'</span>
-            <span>5'</span>
-            <span>10'</span>
-            <span>30'</span>
-          </div>
+        {/* Properties Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Tag Display Toggle */}
+            <div>
+              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
+                <span>Label Style</span>
+                <span className="text-gray-500">{labelMode === 'text' ? 'Text' : 'Icon'}</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-600">Text</span>
+                <button
+                  onClick={() => onLabelModeChange?.(labelMode === 'text' ? 'icon' : 'text')}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    labelMode === 'icon' ? 'bg-blue-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      labelMode === 'icon' ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className="text-xs text-gray-600">Icon</span>
+              </div>
+            </div>
+
+            {/* Snap Interval */}
+            <div>
+              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+                <span>Snap to Grid</span>
+                <span className="text-gray-500">{snapInterval}'</span>
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="30"
+                step="1"
+                value={snapInterval}
+                onChange={(e) => onSnapIntervalChange?.(Number(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                <span>1'</span>
+                <span>5'</span>
+                <span>10'</span>
+                <span>30'</span>
+              </div>
+            </div>
+
+            {/* Canvas Info */}
+            {canvasInfo && (
+              <div>
+                <h3 className="text-xs font-medium text-gray-700 mb-2">Canvas Info</h3>
+                <div className="space-y-1 text-xs text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Position X:</span>
+                    <span>{canvasInfo.position.x.toFixed(1)}'</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Position Y:</span>
+                    <span>{canvasInfo.position.y.toFixed(1)}'</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Zoom:</span>
+                    <span>{(canvasInfo.zoom * 100).toFixed(0)}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }

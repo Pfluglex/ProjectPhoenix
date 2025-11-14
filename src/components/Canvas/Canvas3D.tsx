@@ -15,6 +15,7 @@ interface Canvas3DProps {
   onSpaceDrop?: (space: SpaceInstance) => void;
   onSpaceMove?: (instanceId: string, x: number, y: number, z: number) => void;
   onSpaceTransform?: (instanceId: string, position: { x: number; y: number; z: number }, rotation: number, scale: { x: number; y: number; z: number }) => void;
+  onSpaceDelete?: (instanceId: string) => void;
   snapInterval?: number;
   labelMode?: 'text' | 'icon';
 }
@@ -27,6 +28,7 @@ export function Canvas3D({
   onSpaceDrop,
   onSpaceMove,
   onSpaceTransform,
+  onSpaceDelete,
   snapInterval = 5,
   labelMode = 'text'
 }: Canvas3DProps) {
@@ -95,10 +97,10 @@ export function Canvas3D({
         }}
       >
         {/* Lighting */}
-        <ambientLight intensity={0.7} />
-        <directionalLight position={[50, 100, 50]} intensity={0.8} castShadow />
-        <directionalLight position={[-50, 50, -50]} intensity={0.3} />
-        <hemisphereLight args={['#ffffff', '#444444', 0.4]} />
+        <ambientLight intensity={1.2} />
+        <directionalLight position={[50, 100, 50]} intensity={1.5} castShadow />
+        <directionalLight position={[-50, 50, -50]} intensity={0.8} />
+        <hemisphereLight args={['#ffffff', '#666666', 0.6]} />
 
         {/* Custom dashed grid */}
         <group position={[0, 0, 0]}>
@@ -176,6 +178,11 @@ export function Canvas3D({
             onTransform={(position, rotation, scale) => {
               if (onSpaceTransform) {
                 onSpaceTransform(space.instanceId, position, rotation, scale);
+              }
+            }}
+            onDelete={() => {
+              if (onSpaceDelete) {
+                onSpaceDelete(space.instanceId);
               }
             }}
           />

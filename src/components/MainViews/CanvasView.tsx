@@ -53,6 +53,10 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
     );
   };
 
+  const handleSpaceDelete = (instanceId: string) => {
+    setPlacedSpaces((prev) => prev.filter((space) => space.instanceId !== instanceId));
+  };
+
   return (
     <div className="w-full h-full relative">
       <Canvas3D
@@ -61,6 +65,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onSpaceDrop={handleSpaceDrop}
         onSpaceMove={handleSpaceMove}
         onSpaceTransform={handleSpaceTransform}
+        onSpaceDelete={handleSpaceDelete}
         snapInterval={snapInterval}
         labelMode={labelMode}
       />
