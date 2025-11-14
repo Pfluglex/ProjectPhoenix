@@ -31,6 +31,8 @@ export function Canvas3D({
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasControls.light;
   const [isDraggingFromPalette, setIsDraggingFromPalette] = useState(false);
+  const [isDraggingSpace, setIsDraggingSpace] = useState(false);
+  const controlsRef = useRef<any>(null);
 
   // Handle drop from palette
   const handleDrop = (e: React.DragEvent) => {
@@ -86,7 +88,7 @@ export function Canvas3D({
       {/* Three.js Canvas */}
       <Canvas
         camera={{
-          position: [0, 200, 35], // High up, nearly top-down (80 degrees from horizontal)
+          position: [0, 200, 0.001], // Straight down (90 degrees)
           fov: 50,
         }}
       >
@@ -115,12 +117,20 @@ export function Canvas3D({
           <meshBasicMaterial color="#EF4444" />
         </mesh>
 
+        {/* Invisible ground plane for drag events */}
+        <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+          <planeGeometry args={[1000, 1000]} />
+          <meshBasicMaterial />
+        </mesh>
+
         {/* Placed Spaces */}
         {placedSpaces.map((space) => (
           <SpaceBlock3D
             key={space.instanceId}
             space={space}
             snapInterval={snapInterval}
+            onDragStart={() => setIsDraggingSpace(true)}
+            onDragEnd={() => setIsDraggingSpace(false)}
             onMove={(x, y, z) => {
               if (onSpaceMove) {
                 onSpaceMove(space.instanceId, x, y, z);
@@ -136,17 +146,18 @@ export function Canvas3D({
 
         {/* Camera Controls */}
         <OrbitControls
-          enableRotate={true}
-          enablePan={true}
+          ref={controlsRef}
+          enableRotate={false} // Disable rotation completely
+          enablePan={!isDraggingSpace} // Disable pan when dragging a space
           enableZoom={true}
-          minDistance={10}
-          maxDistance={300}
-          minPolarAngle={Math.PI / 18} // Lock at ~80 degrees (10 degrees from vertical)
-          maxPolarAngle={Math.PI / 18} // Lock at ~80 degrees (10 degrees from vertical)
+          minDistance={100}
+          maxDistance={500}
+          minPolarAngle={0} // Lock at 90 degrees (straight down)
+          maxPolarAngle={0} // Lock at 90 degrees (straight down)
           mouseButtons={{
             LEFT: THREE.MOUSE.PAN,      // Pan with left click
             MIDDLE: THREE.MOUSE.DOLLY,  // Zoom with middle mouse
-            RIGHT: THREE.MOUSE.ROTATE   // Rotate with right click
+            RIGHT: THREE.MOUSE.PAN      // Right click also pans
           }}
         />
       </Canvas>
