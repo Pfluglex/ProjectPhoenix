@@ -13,9 +13,11 @@ interface SpacePaletteProps {
   };
   snapInterval?: number;
   onSnapIntervalChange?: (interval: number) => void;
+  labelMode?: 'text' | 'icon';
+  onLabelModeChange?: (mode: 'text' | 'icon') => void;
 }
 
-export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, onSnapIntervalChange }: SpacePaletteProps) {
+export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange }: SpacePaletteProps) {
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasPalette.light;
   const [spaces, setSpaces] = useState<SpaceDefinition[]>([]);
@@ -94,7 +96,7 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Space Library</h2>
 
         {/* Search */}
-        <div className="relative mb-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
@@ -103,29 +105,6 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
             placeholder="Search spaces..."
             className={`w-full pl-10 pr-3 py-2 ${theme.search.bg} border ${theme.search.border} rounded-md focus:outline-none focus:ring-2 ${theme.search.focusRing} text-sm ${theme.search.backdropBlur}`}
           />
-        </div>
-
-        {/* Snap Interval */}
-        <div>
-          <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
-            <span>Snap to Grid</span>
-            <span className="text-gray-500">{snapInterval}'</span>
-          </label>
-          <input
-            type="range"
-            min="1"
-            max="30"
-            step="1"
-            value={snapInterval}
-            onChange={(e) => onSnapIntervalChange?.(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-          <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-            <span>1'</span>
-            <span>5'</span>
-            <span>10'</span>
-            <span>30'</span>
-          </div>
         </div>
       </div>
 
@@ -141,11 +120,11 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
               const isExpanded = expandedCategories.has(category);
 
               return (
-                <div key={category} className={`${theme.category.bg} ${theme.category.backdropBlur} rounded-lg border ${theme.category.border}`}>
+                <div key={category} className="rounded-lg border border-gray-300">
                   {/* Category Header */}
                   <button
                     onClick={() => toggleCategory(category)}
-                    className={`w-full px-3 py-2 flex items-center justify-between ${theme.category.hover} transition-colors rounded-lg`}
+                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors rounded-lg"
                   >
                     <div className="flex items-center gap-2">
                       {isExpanded ? (
@@ -220,25 +199,55 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
         </p>
       </div>
 
-      {/* Canvas Info */}
-      {canvasInfo && (
-        <div className={`p-3 border-t ${theme.footer.divider} ${theme.footer.bg} flex-shrink-0`}>
-          <div className="text-xs text-gray-600 space-y-1">
-            <div>
-              <span className="font-medium">Position:</span> ({Math.round(canvasInfo.position.x)}, {Math.round(canvasInfo.position.y)})
-            </div>
-            <div>
-              <span className="font-medium">Zoom:</span> {Math.round(canvasInfo.zoom * 100)}%
-            </div>
-            <div className={`text-gray-500 mt-2 pt-2 border-t ${theme.footer.divider}`}>
-              Click + drag to pan
-            </div>
-            <div className="text-gray-500">
-              Scroll to zoom
-            </div>
+      {/* Controls at bottom */}
+      <div className={`p-3 border-t ${theme.footer.divider} ${theme.footer.bg} flex-shrink-0 space-y-3`}>
+        {/* Tag Display Toggle */}
+        <div>
+          <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
+            <span>Label Style</span>
+            <span className="text-gray-500">{labelMode === 'text' ? 'Text' : 'Icon'}</span>
+          </label>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-600">Text</span>
+            <button
+              onClick={() => onLabelModeChange?.(labelMode === 'text' ? 'icon' : 'text')}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                labelMode === 'icon' ? 'bg-blue-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  labelMode === 'icon' ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className="text-xs text-gray-600">Icon</span>
           </div>
         </div>
-      )}
+
+        {/* Snap Interval */}
+        <div>
+          <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+            <span>Snap to Grid</span>
+            <span className="text-gray-500">{snapInterval}'</span>
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="30"
+            step="1"
+            value={snapInterval}
+            onChange={(e) => onSnapIntervalChange?.(Number(e.target.value))}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          />
+          <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+            <span>1'</span>
+            <span>5'</span>
+            <span>10'</span>
+            <span>30'</span>
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 }

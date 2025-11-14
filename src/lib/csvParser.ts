@@ -37,10 +37,11 @@ export function parseSpacesCSV(csvText: string): SpaceDefinition[] {
     // Skip if invalid dimensions
     if (width === 0 || depth === 0) continue;
 
-    // Get category, color, and type from CSV
+    // Get category, color, type, and icon from CSV
     const category = (row.Cat || 'generic').toLowerCase();
     const color = row.color || '#9CA3AF';
     const type = (row.type || 'generic') as 'program' | 'circulation' | 'support' | 'generic';
+    const icon = row.icon || 'Square'; // Default icon
 
     definitions.push({
       id: row.id,
@@ -50,7 +51,8 @@ export function parseSpacesCSV(csvText: string): SpaceDefinition[] {
       depth,
       height,
       color,
-      type
+      type,
+      icon
     });
   }
 
@@ -92,7 +94,8 @@ export function createSpaceInstance(
     height: definition.height,
     rotation: 0,
     color: definition.color,
-    type: definition.type
+    type: definition.type,
+    icon: definition.icon
   };
 }
 

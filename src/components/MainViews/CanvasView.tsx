@@ -15,6 +15,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
   });
   const [placedSpaces, setPlacedSpaces] = useState<SpaceInstance[]>([]);
   const [snapInterval, setSnapInterval] = useState(5);
+  const [labelMode, setLabelMode] = useState<'text' | 'icon'>('text');
 
   const handleSpaceDrop = (space: SpaceInstance) => {
     setPlacedSpaces((prev) => [...prev, space]);
@@ -61,12 +62,15 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onSpaceMove={handleSpaceMove}
         onSpaceTransform={handleSpaceTransform}
         snapInterval={snapInterval}
+        labelMode={labelMode}
       />
       <SpacePalette
         isSidebarExpanded={isSidebarExpanded}
         canvasInfo={canvasState}
         snapInterval={snapInterval}
         onSnapIntervalChange={setSnapInterval}
+        labelMode={labelMode}
+        onLabelModeChange={setLabelMode}
       />
     </div>
   );

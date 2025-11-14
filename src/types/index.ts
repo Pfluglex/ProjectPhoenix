@@ -26,6 +26,7 @@ export interface Space3D {
 
   color: string;
   type: 'program' | 'circulation' | 'support' | 'generic';
+  icon: string; // Lucide icon name
 }
 
 // Raw CSV row structure
@@ -38,6 +39,7 @@ export interface SpaceCSVRow {
   height_actual: string;
   color: string;
   type: string;
+  icon: string;
 }
 
 // Space definition from CSV (template)
@@ -50,6 +52,7 @@ export interface SpaceDefinition {
   height: number;
   color: string;
   type: 'program' | 'circulation' | 'support' | 'generic';
+  icon: string; // Lucide icon name
 }
 
 // Instance of a space on the canvas (has unique instance ID)

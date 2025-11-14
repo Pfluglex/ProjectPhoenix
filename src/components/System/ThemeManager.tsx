@@ -18,7 +18,7 @@ export const APP_COLORS = {
     oliveGreen: '#67823A',
     chartreuse: '#B5BD00',
     orange: '#F2A900',
-    salmon: '#f16555ff'
+    salmon: '#f16555'
   }
 }
 
@@ -29,11 +29,11 @@ export const SPACE_TYPE_COLORS = {
     label: 'Program Space'
   },
   'circulation': {
-    color: '#9CA3AF', // gray-400
+    color: APP_COLORS.secondary.orange, // Yellow (using orange as closest)
     label: 'Circulation'
   },
   'support': {
-    color: APP_COLORS.primary.lightGray,
+    color: APP_COLORS.secondary.salmon,
     label: 'Support Space'
   },
   'generic': {
@@ -47,16 +47,16 @@ export const GLASS_EFFECTS = {
   standard: {
     background: 'rgba(255, 255, 255, 0.5)',
     backdropFilter: 'blur(20px)',
-    border: 'rgba(255, 255, 255, 0.2)',
-    shadow: '0 8px 32px 0 rgba(0, 0, 0, 0.1)',
-    tailwind: 'bg-white/50 backdrop-blur-xl border-white/20'
+    border: 'rgba(255, 255, 255, 0.3)',
+    shadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
+    tailwind: 'bg-white/50 backdrop-blur-xl border-white/30'
   },
   strong: {
     background: 'rgba(255, 255, 255, 0.7)',
     backdropFilter: 'blur(24px)',
-    border: 'rgba(255, 255, 255, 0.3)',
-    shadow: '0 8px 32px 0 rgba(0, 0, 0, 0.15)',
-    tailwind: 'bg-white/70 backdrop-blur-2xl border-white/30'
+    border: 'rgba(255, 255, 255, 0.4)',
+    shadow: '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
+    tailwind: 'bg-white/70 backdrop-blur-2xl border-white/40'
   }
 }
 
@@ -67,24 +67,24 @@ export const COMPONENT_THEMES = {
       container: {
         bg: 'bg-white/50',
         backdropBlur: 'backdrop-blur-xl',
-        border: 'border-white/20',
+        border: 'border-white/30',
         shadow: 'shadow-lg'
       },
       nav: {
-        active: 'bg-white/40 backdrop-blur-sm',
-        hover: 'hover:bg-white/20 backdrop-blur-sm',
+        active: 'bg-gray-100/80 backdrop-blur-sm',
+        hover: 'hover:bg-gray-50/50 backdrop-blur-sm',
         inactive: ''
       },
       icon: {
-        active: 'bg-white/60 backdrop-blur-sm',
-        inactive: 'bg-white/20 backdrop-blur-sm'
+        active: 'bg-blue-100 backdrop-blur-sm',
+        inactive: 'bg-gray-100 backdrop-blur-sm'
       },
       button: {
-        bg: 'bg-white/50 backdrop-blur-xl',
-        hover: 'hover:bg-white/70',
-        border: 'border-white/20'
+        bg: 'bg-white/70 backdrop-blur-xl',
+        hover: 'hover:bg-gray-50/70',
+        border: 'border-white/40'
       },
-      divider: 'border-white/20'
+      divider: 'border-gray-200'
     }
   },
   canvasPalette: {
@@ -96,28 +96,28 @@ export const COMPONENT_THEMES = {
         shadow: 'shadow-lg'
       },
       header: {
-        divider: 'border-white/20'
+        divider: 'border-gray-200'
       },
       search: {
-        bg: 'bg-white/50',
-        border: 'border-white/40',
+        bg: 'bg-white/60',
+        border: 'border-gray-300',
         focusRing: 'focus:ring-blue-500/50',
         backdropBlur: 'backdrop-blur-sm'
       },
       category: {
-        bg: 'bg-white/40',
+        bg: 'bg-gray-50/40',
         backdropBlur: 'backdrop-blur-sm',
-        border: 'border-white/30',
-        hover: 'hover:bg-white/60'
+        border: 'border-gray-300',
+        hover: 'hover:bg-gray-100/50'
       },
       spaceItem: {
-        hover: 'hover:bg-white/50',
+        hover: 'hover:bg-gray-50/40',
         border: 'border-transparent',
-        hoverBorder: 'hover:border-white/40'
+        hoverBorder: 'hover:border-gray-300'
       },
       footer: {
-        bg: 'bg-white/30',
-        divider: 'border-white/20'
+        bg: 'bg-white/50',
+        divider: 'border-gray-200'
       }
     }
   },

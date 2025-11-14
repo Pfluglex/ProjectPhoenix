@@ -4,10 +4,12 @@ import { Html } from '@react-three/drei';
 import type { SpaceInstance } from '../../types';
 import { ThreeEvent, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import * as LucideIcons from 'lucide-react';
 
 interface SpaceBlock3DProps {
   space: SpaceInstance;
   snapInterval: number;
+  labelMode?: 'text' | 'icon';
   onDragStart?: () => void;
   onDragEnd?: () => void;
   onMove?: (x: number, y: number, z: number) => void;
@@ -18,12 +20,13 @@ interface SpaceBlock3DProps {
   ) => void;
 }
 
-export function SpaceBlock3D({ space, snapInterval, onDragStart, onDragEnd, onMove, onTransform }: SpaceBlock3DProps) {
+export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragStart, onDragEnd, onMove, onTransform }: SpaceBlock3DProps) {
   const meshRef = useRef<Mesh>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
   const { camera, gl } = useThree();
   const planeRef = useRef(new Plane(new Vector3(0, 1, 0), 0));
+  const dragOffsetRef = useRef<{ x: number; z: number }>({ x: 0, z: 0 });
 
   const snapToGrid = (value: number) => {
     return Math.round(value / snapInterval) * snapInterval;
@@ -36,6 +39,13 @@ export function SpaceBlock3D({ space, snapInterval, onDragStart, onDragEnd, onMo
     0,
     space.position.z,
   ]);
+
+  // Sync local position with space prop when not dragging
+  useEffect(() => {
+    if (!isDragging) {
+      setPosition([space.position.x, 0, space.position.z]);
+    }
+  }, [space.position.x, space.position.z, isDragging]);
 
   // Handle global pointer move
   useEffect(() => {
@@ -53,7 +63,12 @@ export function SpaceBlock3D({ space, snapInterval, onDragStart, onDragEnd, onMo
       raycaster.ray.intersectPlane(planeRef.current, intersection);
 
       if (intersection) {
-        setPosition([intersection.x, 0, intersection.z]);
+        // Apply the drag offset to maintain relative position
+        setPosition([
+          intersection.x - dragOffsetRef.current.x,
+          0,
+          intersection.z - dragOffsetRef.current.z
+        ]);
       }
     };
 
@@ -64,8 +79,16 @@ export function SpaceBlock3D({ space, snapInterval, onDragStart, onDragEnd, onMo
         onDragEnd();
       }
 
-      const snappedX = snapToGrid(position[0]);
-      const snappedZ = snapToGrid(position[2]);
+      // Calculate offset for spaces with odd number of snap intervals
+      // e.g., 45' space with 5' snap = 9 intervals (odd), needs 2.5' offset
+      const xIntervals = space.width / snapInterval;
+      const zIntervals = space.depth / snapInterval;
+      const xOffset = (xIntervals % 2 !== 0) ? snapInterval / 2 : 0;
+      const zOffset = (zIntervals % 2 !== 0) ? snapInterval / 2 : 0;
+
+      // Snap the corner to grid, then add offset for center
+      const snappedX = snapToGrid(position[0] - xOffset) + xOffset;
+      const snappedZ = snapToGrid(position[2] - zOffset) + zOffset;
 
       setPosition([snappedX, 0, snappedZ]);
 
@@ -85,8 +108,10 @@ export function SpaceBlock3D({ space, snapInterval, onDragStart, onDragEnd, onMo
 
   // Create extruded rounded rectangle geometry
   const geometry = useMemo(() => {
-    const width = space.width;
-    const depth = space.depth;
+    const bevelSize = 5;
+    // Shrink the base shape by the bevel size so final dimensions match space.width/depth
+    const width = space.width - (bevelSize * 2);
+    const depth = space.depth - (bevelSize * 2);
     const radius = 2; // Corner radius
 
     // Create a rounded rectangle shape
@@ -108,7 +133,10 @@ export function SpaceBlock3D({ space, snapInterval, onDragStart, onDragEnd, onMo
     const extrudeSettings = {
       steps: 1,
       depth: height,
-      bevelEnabled: false,
+      bevelEnabled: true,
+      bevelThickness: 5,
+      bevelSize: 5,
+      bevelSegments: 10,
     };
 
     return new ExtrudeGeometry(shape, extrudeSettings);
@@ -116,6 +144,14 @@ export function SpaceBlock3D({ space, snapInterval, onDragStart, onDragEnd, onMo
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
+
+    // Calculate offset between click point and object center
+    const clickPoint = e.point;
+    dragOffsetRef.current = {
+      x: clickPoint.x - position[0],
+      z: clickPoint.z - position[2],
+    };
+
     setIsDragging(true);
 
     // Notify parent to disable panning
@@ -139,21 +175,18 @@ export function SpaceBlock3D({ space, snapInterval, onDragStart, onDragEnd, onMo
       >
         <meshStandardMaterial
           color={space.color}
-          opacity={hovered || isDragging ? 0.9 : 0.85}
-          transparent
           roughness={0.5}
           metalness={0.1}
         />
       </mesh>
 
-      {/* Space label (HTML overlay) */}
+      {/* Space label (HTML overlay) - scale based on space size */}
       <Html
         position={[0, height + 5, 0]}
         center
         transform
-        occlude
         sprite // Makes it always face the camera (billboard)
-        scale={10} // Scale up the entire HTML element
+        scale={Math.min(10, Math.max(6, Math.min(space.width, space.depth) / 4))} // Scale from 6-10 based on smallest dimension
         zIndexRange={[0, 0]} // Keep z-index low so UI elements appear above
         style={{
           pointerEvents: 'none',
@@ -161,12 +194,41 @@ export function SpaceBlock3D({ space, snapInterval, onDragStart, onDragEnd, onMo
           zIndex: 0,
         }}
       >
-        <div className="bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md border border-gray-200">
-          <div className="text-lg font-bold text-gray-900 whitespace-nowrap">{space.name}</div>
-          <div className="text-base text-gray-600 whitespace-nowrap">
-            {space.width}' × {space.depth}'
+        {labelMode === 'icon' ? (
+          // Icon mode - show lucide icon
+          <div className="flex items-center justify-center">
+            {(() => {
+              const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
+              return IconComponent ? <IconComponent className="w-8 h-8 text-white" /> : null;
+            })()}
           </div>
-        </div>
+        ) : (
+          // Text mode - show name and dimensions
+          <div
+            className="px-3 py-2 text-center"
+            style={{
+              maxWidth: `${Math.min(space.width, space.depth) * 10}px`,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              className="text-lg font-bold truncate"
+              style={{
+                color: 'white',
+              }}
+            >
+              {space.name}
+            </div>
+            <div
+              className="text-base truncate"
+              style={{
+                color: 'white',
+              }}
+            >
+              {space.width}' × {space.depth}'
+            </div>
+          </div>
+        )}
       </Html>
     </group>
   );

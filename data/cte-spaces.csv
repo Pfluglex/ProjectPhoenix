@@ -1,37 +1,37 @@
-id,Cat,name,width_Actual,depth_Actual,height_actual,color,type
-tech-001,technology,Computer Science Lab,40,40,15,#3B82F6,program
-tech-002,technology,Cyber Security Lab,60,30,15,#3B82F6,program
-tech-003,technology,Audio Visual Lab,60,30,15,#3B82F6,program
-tech-004,technology,Technology Classroom,30,30,15,#3B82F6,program
-tech-005,technology,Health Tech Lab,40,40,15,#3B82F6,program
-tech-006,technology,Medical Clinic,60,40,15,#3B82F6,program
-tech-007,technology,Dressing Room,20,40,15,#3B82F6,program
-tech-008,technology,Culinary Lab,40,45,15,#3B82F6,program
-trade-001,trades,Construction Trades,60,60,15,#F59E0B,program
-trade-002,trades,Maritime Training,30,60,15,#F59E0B,program
-trade-003,trades,Maker Space,30,60,15,#F59E0B,program
-trade-004,trades,Aviation Maintenance,45,60,15,#F59E0B,program
-trade-005,trades,Multi-Purpose Lab,60,60,15,#F59E0B,program
-trade-006,trades,Multi-Purpose Storage,20,45,15,#F59E0B,support
-band-001,band,Small Ensemble Room 1,12,20,15,#8B5CF6,program
-band-002,band,Small Ensemble Storage 1,8,5,15,#8B5CF6,support
-band-003,band,Small Ensemble Room 2,12,20,15,#8B5CF6,program
-band-004,band,Small Ensemble Storage 2,8,5,15,#8B5CF6,support
-band-005,band,Music Library,30,20,15,#8B5CF6,support
-band-006,band,Support Resource Room,30,20,15,#8B5CF6,support
-band-007,band,Large Ensemble Room,30,20,15,#8B5CF6,program
-band-008,band,Large Ensemble Storage,15,20,15,#8B5CF6,support
-band-009,band,Medium Ensemble Room,20,10,15,#8B5CF6,program
-band-010,band,Medium Ensemble Storage,20,10,15,#8B5CF6,support
-band-011,band,Band Hall,70,60,15,#8B5CF6,program
-band-012,band,Band Hall Storage,70,10,15,#8B5CF6,support
-band-013,band,Percussion Instrument Storage,20,45,15,#8B5CF6,support
-band-014,band,Percussion Room,25,45,15,#8B5CF6,program
-band-015,band,Band Director Office,45,15,15,#8B5CF6,support
-band-016,band,Uniform Storage,30,15,15,#8B5CF6,support
-band-017,band,Choir Room,45,40,15,#8B5CF6,program
-band-018,band,Storage Office,45,15,15,#8B5CF6,support
-generic-001,generic,College and Career Center,60,30,15,#10B981,generic
-generic-002,generic,PLC Support Room,60,30,15,#10B981,generic
-service-001,service,MEP Room,20,30,15,#6B7280,support
-circ-001,circulation,Circulation Block,5,5,15,#9CA3AF,circulation
+id,Cat,name,width_Actual,depth_Actual,height_actual,color,type,icon
+tech-001,technology,Computer Science Lab,40,40,15,#003C71,program,Laptop
+tech-002,technology,Cyber Security Lab,60,30,15,#003C71,program,Shield
+tech-003,technology,Audio Visual Lab,60,30,15,#003C71,program,Video
+tech-004,technology,Technology Classroom,30,30,15,#003C71,program,Monitor
+tech-005,technology,Health Tech Lab,40,40,15,#003C71,program,Stethoscope
+tech-006,technology,Medical Clinic,60,40,15,#003C71,program,Cross
+tech-007,technology,Dressing Room,20,40,15,#003C71,program,Shirt
+tech-008,technology,Culinary Lab,40,45,15,#003C71,program,ChefHat
+trade-001,trades,Construction Trades,60,60,15,#00A9E0,program,HardHat
+trade-002,trades,Maritime Training,30,60,15,#00A9E0,program,Anchor
+trade-003,trades,Maker Space,30,60,15,#00A9E0,program,Hammer
+trade-004,trades,Aviation Maintenance,45,60,15,#00A9E0,program,Plane
+trade-005,trades,Multi-Purpose Lab,60,60,15,#00A9E0,program,Wrench
+trade-006,trades,Multi-Purpose Storage,20,45,15,#f16555,support,Package
+band-001,band,Small Ensemble Room 1,12,20,15,#9A3324,program,Music
+band-002,band,Small Ensemble Storage 1,8,5,15,#f16555,support,Archive
+band-003,band,Small Ensemble Room 2,12,20,15,#9A3324,program,Music
+band-004,band,Small Ensemble Storage 2,8,5,15,#f16555,support,Archive
+band-005,band,Music Library,30,20,15,#f16555,support,Library
+band-006,band,Support Resource Room,30,20,15,#f16555,support,Folder
+band-007,band,Large Ensemble Room,30,20,15,#9A3324,program,Music
+band-008,band,Large Ensemble Storage,15,20,15,#f16555,support,Archive
+band-009,band,Medium Ensemble Room,20,10,15,#9A3324,program,Music
+band-010,band,Medium Ensemble Storage,20,10,15,#f16555,support,Archive
+band-011,band,Band Hall,70,60,15,#9A3324,program,Music2
+band-012,band,Band Hall Storage,70,10,15,#f16555,support,Archive
+band-013,band,Percussion Instrument Storage,20,45,15,#f16555,support,Drum
+band-014,band,Percussion Room,25,45,15,#9A3324,program,Drum
+band-015,band,Band Director Office,45,15,15,#f16555,support,Briefcase
+band-016,band,Uniform Storage,30,15,15,#f16555,support,Shirt
+band-017,band,Choir Room,45,40,15,#9A3324,program,Mic
+band-018,band,Storage Office,45,15,15,#f16555,support,FileBox
+generic-001,generic,College and Career Center,60,30,15,#67823A,generic,GraduationCap
+generic-002,generic,PLC Support Room,60,30,15,#67823A,generic,Users
+service-001,service,MEP Room,20,30,15,#f16555,support,Zap
+circ-001,circulation,Circulation Block,5,5,15,#F2A900,circulation,Square

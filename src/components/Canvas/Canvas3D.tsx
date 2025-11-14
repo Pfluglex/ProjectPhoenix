@@ -16,6 +16,7 @@ interface Canvas3DProps {
   onSpaceMove?: (instanceId: string, x: number, y: number, z: number) => void;
   onSpaceTransform?: (instanceId: string, position: { x: number; y: number; z: number }, rotation: number, scale: { x: number; y: number; z: number }) => void;
   snapInterval?: number;
+  labelMode?: 'text' | 'icon';
 }
 
 export function Canvas3D({
@@ -26,7 +27,8 @@ export function Canvas3D({
   onSpaceDrop,
   onSpaceMove,
   onSpaceTransform,
-  snapInterval = 5
+  snapInterval = 5,
+  labelMode = 'text'
 }: Canvas3DProps) {
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasControls.light;
@@ -93,23 +95,57 @@ export function Canvas3D({
         }}
       >
         {/* Lighting */}
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[10, 10, 5]} intensity={0.5} />
+        <ambientLight intensity={0.7} />
+        <directionalLight position={[50, 100, 50]} intensity={0.8} castShadow />
+        <directionalLight position={[-50, 50, -50]} intensity={0.3} />
+        <hemisphereLight args={['#ffffff', '#444444', 0.4]} />
 
-        {/* Grid */}
-        <Grid
-          args={[500, 500]} // 500x500 feet
-          cellSize={5} // 5-foot cells
-          cellThickness={0.5}
-          cellColor="#D1D5DB"
-          sectionSize={30} // 30-foot sections (major grid)
-          sectionThickness={1}
-          sectionColor="#9CA3AF"
-          fadeDistance={400}
-          fadeStrength={1}
-          followCamera={false}
-          infiniteGrid={false}
-        />
+        {/* Custom dashed grid */}
+        <group position={[0, 0, 0]}>
+          {/* Create dashed grid lines */}
+          {Array.from({ length: 201 }, (_, i) => i - 100).map((i) => {
+            const pos = i * 5;
+            const isMajor = i % 6 === 0; // Every 6th line (30 feet)
+            return (
+              <group key={`grid-${i}`}>
+                {/* Vertical line */}
+                <line>
+                  <bufferGeometry>
+                    <bufferAttribute
+                      attach="attributes-position"
+                      count={2}
+                      array={new Float32Array([pos, 0, -500, pos, 0, 500])}
+                      itemSize={3}
+                    />
+                  </bufferGeometry>
+                  <lineDashedMaterial
+                    color={isMajor ? "#9CA3AF" : "#E5E7EB"}
+                    linewidth={isMajor ? 4.5 : 1.5}
+                    dashSize={isMajor ? 10 : 5}
+                    gapSize={isMajor ? 5 : 5}
+                  />
+                </line>
+                {/* Horizontal line */}
+                <line>
+                  <bufferGeometry>
+                    <bufferAttribute
+                      attach="attributes-position"
+                      count={2}
+                      array={new Float32Array([-500, 0, pos, 500, 0, pos])}
+                      itemSize={3}
+                    />
+                  </bufferGeometry>
+                  <lineDashedMaterial
+                    color={isMajor ? "#9CA3AF" : "#E5E7EB"}
+                    linewidth={isMajor ? 4.5 : 1.5}
+                    dashSize={isMajor ? 10 : 5}
+                    gapSize={isMajor ? 5 : 5}
+                  />
+                </line>
+              </group>
+            );
+          })}
+        </group>
 
         {/* Origin marker */}
         <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -129,6 +165,7 @@ export function Canvas3D({
             key={space.instanceId}
             space={space}
             snapInterval={snapInterval}
+            labelMode={labelMode}
             onDragStart={() => setIsDraggingSpace(true)}
             onDragEnd={() => setIsDraggingSpace(false)}
             onMove={(x, y, z) => {
