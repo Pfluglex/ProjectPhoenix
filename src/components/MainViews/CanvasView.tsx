@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Canvas3D } from '../Canvas/Canvas3D';
-import { SpacePalette } from '../Canvas/SpacePalette';
+import { LibraryPanel } from '../Canvas/LibraryPanel';
+import { ToolsPanel } from '../Canvas/ToolsPanel';
+import { PropertiesPanel } from '../Canvas/PropertiesPanel';
 import { LoadProjectModal } from '../Canvas/LoadProjectModal';
 import type { SpaceInstance } from '../../types';
 import { saveProject, loadProject, type Project, type ProjectSpace } from '../../lib/api';
@@ -321,9 +323,17 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onDeleteMeasurement={handleDeleteMeasurement}
         presentationMode={presentationMode}
       />
-      <SpacePalette
+
+      {/* Library Panel */}
+      <LibraryPanel
         isSidebarExpanded={isSidebarExpanded}
-        canvasInfo={canvasState}
+        onDragStart={setDraggedSpace}
+        onDragEnd={() => setDraggedSpace(null)}
+      />
+
+      {/* Tools Panel */}
+      <ToolsPanel
+        isSidebarExpanded={isSidebarExpanded}
         snapInterval={snapInterval}
         onSnapIntervalChange={setSnapInterval}
         currentLevel={currentLevel}
@@ -336,14 +346,18 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onSaveProject={handleSaveProject}
         onLoadProject={() => setShowLoadModal(true)}
         onClearCanvas={handleClearCanvas}
-        onDragStart={setDraggedSpace}
-        onDragEnd={() => setDraggedSpace(null)}
         measureMode={measureMode}
         onMeasureModeChange={setMeasureMode}
         measurementCount={measurements.length}
         onClearAllMeasurements={handleClearAllMeasurements}
         presentationMode={presentationMode}
         onPresentationModeChange={setPresentationMode}
+      />
+
+      {/* Properties Panel */}
+      <PropertiesPanel
+        isSidebarExpanded={isSidebarExpanded}
+        placedSpaces={placedSpaces}
       />
 
       {/* Load Project Modal */}

@@ -18,6 +18,17 @@ export function Measurement({ id, point1, point2, gridY = 0, isPreview = false, 
   const dz = point2.z - point1.z;
   const distance = Math.sqrt(dx * dx + dz * dz);
 
+  // Calculate rotation angle for text alignment
+  // atan2 gives us the angle in radians, convert to degrees
+  let angleRadians = Math.atan2(dz, dx);
+  let angleDegrees = (angleRadians * 180) / Math.PI;
+
+  // Ensure text is always readable (not upside down)
+  // If angle is in the "backwards" range (-90 to -180 or 90 to 180), flip it
+  if (angleDegrees > 90 || angleDegrees < -90) {
+    angleDegrees += 180;
+  }
+
   const handleRightClick = (e: React.MouseEvent) => {
     if (!isPreview && onDelete) {
       e.stopPropagation();
@@ -78,11 +89,12 @@ export function Measurement({ id, point1, point2, gridY = 0, isPreview = false, 
         ]}
         center
         sprite
-        zIndexRange={[50, 50]}
+        zIndexRange={[0, 0]}
         style={{ pointerEvents: isPreview ? 'none' : 'auto' }}
       >
         <div
           className={`${isPreview ? 'bg-blue-400' : 'bg-blue-500'} text-white px-3 py-1 rounded-lg text-sm font-bold shadow-lg select-none ${isPreview ? 'pointer-events-none' : 'cursor-context-menu'}`}
+          style={{ transform: `rotate(${angleDegrees}deg)` }}
           onContextMenu={handleRightClick}
         >
           {distance.toFixed(1)}'
@@ -94,12 +106,12 @@ export function Measurement({ id, point1, point2, gridY = 0, isPreview = false, 
         <Html
           position={[
             (point1.x + point2.x) / 2,
-            4,
+            gridY + 4,
             (point1.z + point2.z) / 2
           ]}
           center
           sprite
-          zIndexRange={[100, 100]}
+          zIndexRange={[0, 0]}
           style={{ pointerEvents: 'auto' }}
         >
           <button

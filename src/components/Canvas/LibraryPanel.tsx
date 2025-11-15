@@ -71,7 +71,7 @@ export function LibraryPanel({ isSidebarExpanded, onDragStart, onDragEnd }: Libr
   if (loading) {
     return (
       <motion.div
-        className={`absolute top-4 w-80 ${theme.container.bg} ${theme.container.backdropBlur} rounded-lg ${theme.container.shadow} border ${theme.container.border} p-4`}
+        className={`absolute top-4 w-80 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} border ${theme.container.border} p-4`}
         style={{ left: leftOffset }}
         initial={false}
         animate={{ left: leftOffset }}
@@ -84,7 +84,7 @@ export function LibraryPanel({ isSidebarExpanded, onDragStart, onDragEnd }: Libr
 
   return (
     <motion.div
-      className={`absolute top-4 w-80 ${theme.container.bg} ${theme.container.backdropBlur} rounded-lg ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
+      className={`absolute top-4 w-80 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
       style={{
         height: 'calc(100vh - 2rem)'
       }}
