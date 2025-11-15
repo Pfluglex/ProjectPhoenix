@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Ruler, Sun, Calendar, PanelLeftOpen } from 'lucide-react';
+import { Ruler, Sun, Calendar, PanelLeftOpen, Save, FolderOpen, Trash2 } from 'lucide-react';
 import { useTheme } from '../System/ThemeManager';
 import { PanelDots, type PanelType } from './PanelDots';
 
@@ -30,6 +30,12 @@ interface ToolsPanelProps {
   onTimeOfDayChange?: (hour: number) => void;
   monthOfYear?: number; // 1-12 months
   onMonthOfYearChange?: (month: number) => void;
+  showGrid?: boolean;
+  onShowGridChange?: (show: boolean) => void;
+  showLabels?: boolean;
+  onShowLabelsChange?: (show: boolean) => void;
+  showMeasurements?: boolean;
+  onShowMeasurementsChange?: (show: boolean) => void;
 }
 
 export function ToolsPanel({
@@ -59,6 +65,12 @@ export function ToolsPanel({
   onTimeOfDayChange,
   monthOfYear = 6,
   onMonthOfYearChange,
+  showGrid = true,
+  onShowGridChange,
+  showLabels = true,
+  onShowLabelsChange,
+  showMeasurements = true,
+  onShowMeasurementsChange,
 }: ToolsPanelProps) {
   const { componentThemes, colors } = useTheme();
   const theme = componentThemes.canvasPalette.light;
@@ -135,57 +147,386 @@ export function ToolsPanel({
 
       {/* Tools Content */}
       <div className="p-4 space-y-3">
-        {/* View Controls Section */}
-        <div className="space-y-1.5">
+        {/* Project Actions Section */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Project</h3>
+
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={onSaveProject}
+              disabled={placedSpaces.length === 0}
+              className="flex items-center justify-center w-10 h-10 rounded-xl disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: placedSpaces.length === 0 ? undefined : 'rgba(16, 185, 129, 0.5)',
+                color: '#ffffff'
+              }}
+              onMouseEnter={(e) => {
+                if (placedSpaces.length > 0) {
+                  e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 1)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (placedSpaces.length > 0) {
+                  e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.5)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
+              title="Save Project"
+            >
+              <Save className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => onLoadProject?.()}
+              className="flex items-center justify-center w-10 h-10 rounded-xl transition-all hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                color: '#ffffff'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 1)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.5)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+              title="Load Project"
+            >
+              <FolderOpen className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to clear the canvas? This cannot be undone.')) {
+                  onClearCanvas?.();
+                }
+              }}
+              disabled={placedSpaces.length === 0}
+              className="flex items-center justify-center w-10 h-10 rounded-xl disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: placedSpaces.length === 0 ? undefined : 'rgba(239, 68, 68, 0.5)',
+                color: '#ffffff'
+              }}
+              onMouseEnter={(e) => {
+                if (placedSpaces.length > 0) {
+                  e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 1)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (placedSpaces.length > 0) {
+                  e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.5)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
+              title="Clear Canvas"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200"></div>
+
+        {/* Canvas Tools Section */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Canvas</h3>
+
+          {/* Measure Tool */}
+          <div>
+            <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1.5">
+              <span>Measure Tool</span>
+              <Ruler className="w-3.5 h-3.5 text-purple-500" />
+            </label>
+            <div className="flex gap-2 justify-center">
+              <button
+                onClick={() => onMeasureModeChange?.(!measureMode)}
+                className="flex items-center justify-center w-10 h-10 rounded-xl transition-all hover:scale-105 active:scale-95"
+                style={{
+                  backgroundColor: 'rgba(168, 85, 247, 0.5)',
+                  color: '#ffffff',
+                  boxShadow: measureMode ? '0 2px 8px rgba(168, 85, 247, 0.3)' : undefined
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 1)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(168, 85, 247, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 0.5)';
+                  e.currentTarget.style.boxShadow = measureMode ? '0 2px 8px rgba(168, 85, 247, 0.3)' : 'none';
+                }}
+                title={measureMode ? 'Stop Measuring' : 'Start Measuring'}
+              >
+                <Ruler className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => {
+                  if (measurementCount > 0 && window.confirm(`Clear all ${measurementCount} measurement(s)?`)) {
+                    onClearAllMeasurements?.();
+                  }
+                }}
+                disabled={measurementCount === 0}
+                className="relative flex items-center justify-center w-10 h-10 rounded-xl disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+                style={{
+                  backgroundColor: measurementCount === 0 ? undefined : 'rgba(249, 115, 22, 0.5)',
+                  color: '#ffffff'
+                }}
+                onMouseEnter={(e) => {
+                  if (measurementCount > 0) {
+                    e.currentTarget.style.backgroundColor = 'rgba(249, 115, 22, 1)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(249, 115, 22, 0.3)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (measurementCount > 0) {
+                    e.currentTarget.style.backgroundColor = 'rgba(249, 115, 22, 0.5)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }
+                }}
+                title={`Clear All Measurements${measurementCount > 0 ? ` (${measurementCount})` : ''}`}
+              >
+                <Trash2 className="w-5 h-5" />
+                {measurementCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-semibold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {measurementCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Snap to Grid - Compact */}
+          <div>
+            <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+              <span>Snap to Grid</span>
+              <span className="text-gray-500 text-[10px]">{snapInterval}'</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="7"
+              step="1"
+              value={[1, 2.5, 5, 7.5, 10, 15, 20, 30].indexOf(snapInterval)}
+              onChange={(e) => {
+                const snapValues = [1, 2.5, 5, 7.5, 10, 15, 20, 30];
+                onSnapIntervalChange?.(snapValues[Number(e.target.value)]);
+              }}
+              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            />
+            <div className="flex justify-between text-[9px] text-gray-400 mt-0.5 px-0.5">
+              <span>1'</span>
+              <span>2.5'</span>
+              <span>5'</span>
+              <span>7.5'</span>
+              <span>10'</span>
+              <span>15'</span>
+              <span>20'</span>
+              <span>30'</span>
+            </div>
+          </div>
+
+          {/* Building Level - Compact */}
+          <div>
+            <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+              <span>Building Level</span>
+              <span className="text-gray-500 text-[10px]">L{currentLevel} (Y={(currentLevel - 1) * 15}')</span>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="4"
+              step="1"
+              value={currentLevel}
+              onChange={(e) => {
+                onLevelChange?.(Number(e.target.value));
+              }}
+              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            />
+            <div className="flex justify-between text-[9px] text-gray-400 mt-0.5 px-0.5">
+              <span>L1</span>
+              <span>L2</span>
+              <span>L3</span>
+              <span>L4</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200"></div>
+
+        {/* View Controls Section - Moved to bottom with tighter spacing */}
+        <div className="space-y-0.5">
           <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">View</h3>
 
-          {/* Isometric View Toggle - Compact */}
-          <div className="flex items-center justify-between py-1.5">
+          {/* Isometric View Toggle - iOS 26 Style */}
+          <div className="flex items-center justify-between py-1">
             <span className="text-xs text-gray-700">Isometric View</span>
             <button
               onClick={() => onCameraAngleChange?.(cameraAngle === 90 ? 45 : 90)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 ${
-                cameraAngle === 45 ? 'bg-green-500' : 'bg-gray-300'
+              className={`relative inline-flex items-center transition-all duration-300 ${
+                cameraAngle === 45 ? 'bg-green-500' : 'bg-gray-200'
               }`}
+              style={{
+                height: '23.25px',
+                width: '52.5px',
+                borderRadius: '11.625px',
+                padding: '1.5px'
+              }}
             >
               <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  cameraAngle === 45 ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                className={`inline-block transform bg-white transition-all duration-300 ${
+                  cameraAngle === 45 ? 'translate-x-[20.25px]' : 'translate-x-0'
                 }`}
+                style={{
+                  height: '20.25px',
+                  width: '30px',
+                  borderRadius: '10.125px',
+                  boxShadow: '0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06)'
+                }}
               />
             </button>
           </div>
 
-          {/* Icon Labels Toggle - Compact */}
-          <div className="flex items-center justify-between py-1.5">
+          {/* Icon Labels Toggle - iOS 26 Style */}
+          <div className="flex items-center justify-between py-1">
             <span className="text-xs text-gray-700">Icon Labels</span>
             <button
               onClick={() => onLabelModeChange?.(labelMode === 'text' ? 'icon' : 'text')}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 ${
-                labelMode === 'icon' ? 'bg-green-500' : 'bg-gray-300'
+              className={`relative inline-flex items-center transition-all duration-300 ${
+                labelMode === 'icon' ? 'bg-green-500' : 'bg-gray-200'
               }`}
+              style={{
+                height: '23.25px',
+                width: '52.5px',
+                borderRadius: '11.625px',
+                padding: '1.5px'
+              }}
             >
               <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  labelMode === 'icon' ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                className={`inline-block transform bg-white transition-all duration-300 ${
+                  labelMode === 'icon' ? 'translate-x-[20.25px]' : 'translate-x-0'
                 }`}
+                style={{
+                  height: '20.25px',
+                  width: '30px',
+                  borderRadius: '10.125px',
+                  boxShadow: '0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06)'
+                }}
               />
             </button>
           </div>
 
-          {/* Presentation Mode Toggle - Compact */}
-          <div className="flex items-center justify-between py-1.5">
+          {/* Presentation Mode Toggle - iOS 26 Style */}
+          <div className="flex items-center justify-between py-1">
             <span className="text-xs text-gray-700">Presentation Mode</span>
             <button
               onClick={() => onPresentationModeChange?.(!presentationMode)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 ${
-                presentationMode ? 'bg-green-500' : 'bg-gray-300'
+              className={`relative inline-flex items-center transition-all duration-300 ${
+                presentationMode ? 'bg-green-500' : 'bg-gray-200'
               }`}
+              style={{
+                height: '23.25px',
+                width: '52.5px',
+                borderRadius: '11.625px',
+                padding: '1.5px'
+              }}
             >
               <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  presentationMode ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                className={`inline-block transform bg-white transition-all duration-300 ${
+                  presentationMode ? 'translate-x-[20.25px]' : 'translate-x-0'
                 }`}
+                style={{
+                  height: '20.25px',
+                  width: '30px',
+                  borderRadius: '10.125px',
+                  boxShadow: '0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06)'
+                }}
+              />
+            </button>
+          </div>
+
+          {/* Show Grid Toggle - iOS 26 Style */}
+          <div className="flex items-center justify-between py-1">
+            <span className="text-xs text-gray-700">Show Grid</span>
+            <button
+              onClick={() => onShowGridChange?.(!showGrid)}
+              className={`relative inline-flex items-center transition-all duration-300 ${
+                showGrid ? 'bg-green-500' : 'bg-gray-200'
+              }`}
+              style={{
+                height: '23.25px',
+                width: '52.5px',
+                borderRadius: '11.625px',
+                padding: '1.5px'
+              }}
+            >
+              <span
+                className={`inline-block transform bg-white transition-all duration-300 ${
+                  showGrid ? 'translate-x-[20.25px]' : 'translate-x-0'
+                }`}
+                style={{
+                  height: '20.25px',
+                  width: '30px',
+                  borderRadius: '10.125px',
+                  boxShadow: '0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06)'
+                }}
+              />
+            </button>
+          </div>
+
+          {/* Show Labels Toggle - iOS 26 Style */}
+          <div className="flex items-center justify-between py-1">
+            <span className="text-xs text-gray-700">Show Labels</span>
+            <button
+              onClick={() => onShowLabelsChange?.(!showLabels)}
+              className={`relative inline-flex items-center transition-all duration-300 ${
+                showLabels ? 'bg-green-500' : 'bg-gray-200'
+              }`}
+              style={{
+                height: '23.25px',
+                width: '52.5px',
+                borderRadius: '11.625px',
+                padding: '1.5px'
+              }}
+            >
+              <span
+                className={`inline-block transform bg-white transition-all duration-300 ${
+                  showLabels ? 'translate-x-[20.25px]' : 'translate-x-0'
+                }`}
+                style={{
+                  height: '20.25px',
+                  width: '30px',
+                  borderRadius: '10.125px',
+                  boxShadow: '0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06)'
+                }}
+              />
+            </button>
+          </div>
+
+          {/* Show Measurements Toggle - iOS 26 Style */}
+          <div className="flex items-center justify-between py-1">
+            <span className="text-xs text-gray-700">Show Measurements</span>
+            <button
+              onClick={() => onShowMeasurementsChange?.(!showMeasurements)}
+              className={`relative inline-flex items-center transition-all duration-300 ${
+                showMeasurements ? 'bg-green-500' : 'bg-gray-200'
+              }`}
+              style={{
+                height: '23.25px',
+                width: '52.5px',
+                borderRadius: '11.625px',
+                padding: '1.5px'
+              }}
+            >
+              <span
+                className={`inline-block transform bg-white transition-all duration-300 ${
+                  showMeasurements ? 'translate-x-[20.25px]' : 'translate-x-0'
+                }`}
+                style={{
+                  height: '20.25px',
+                  width: '30px',
+                  borderRadius: '10.125px',
+                  boxShadow: '0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06)'
+                }}
               />
             </button>
           </div>
@@ -248,171 +589,6 @@ export function ToolsPanel({
               <span>Oct</span>
               <span>Dec</span>
             </div>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-200"></div>
-
-        {/* Canvas Tools Section */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Canvas</h3>
-
-          {/* Measure Tool */}
-          <div>
-            <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1.5">
-              <span>Measure Tool</span>
-              <span className="text-gray-500 text-[10px]">{measureMode ? 'On' : 'Off'} {measurementCount > 0 && `(${measurementCount})`}</span>
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => onMeasureModeChange?.(!measureMode)}
-                className={`flex-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
-                  measureMode
-                    ? 'bg-blue-500 text-white hover:bg-blue-600'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                <Ruler className="w-3.5 h-3.5" />
-                {measureMode ? 'Measuring' : 'Measure'}
-              </button>
-              {measurementCount > 0 && (
-                <button
-                  onClick={() => {
-                    if (window.confirm(`Clear all ${measurementCount} measurement(s)?`)) {
-                      onClearAllMeasurements?.();
-                    }
-                  }}
-                  className="px-2.5 py-1.5 rounded-md text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
-                  title="Clear All Measurements"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Snap to Grid - Compact */}
-          <div>
-            <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
-              <span>Snap to Grid</span>
-              <span className="text-gray-500 text-[10px]">{snapInterval}'</span>
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="7"
-              step="1"
-              value={[1, 2.5, 5, 7.5, 10, 15, 20, 30].indexOf(snapInterval)}
-              onChange={(e) => {
-                const snapValues = [1, 2.5, 5, 7.5, 10, 15, 20, 30];
-                onSnapIntervalChange?.(snapValues[Number(e.target.value)]);
-              }}
-              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
-            <div className="flex justify-between text-[9px] text-gray-400 mt-0.5 px-0.5">
-              <span>1'</span>
-              <span>2.5'</span>
-              <span>5'</span>
-              <span>7.5'</span>
-              <span>10'</span>
-              <span>15'</span>
-              <span>20'</span>
-              <span>30'</span>
-            </div>
-          </div>
-
-          {/* Building Level - Compact */}
-          <div>
-            <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
-              <span>Building Level</span>
-              <span className="text-gray-500 text-[10px]">L{currentLevel} (Y={(currentLevel - 1) * 15}')</span>
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="4"
-              step="1"
-              value={currentLevel}
-              onChange={(e) => {
-                onLevelChange?.(Number(e.target.value));
-              }}
-              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
-            <div className="flex justify-between text-[9px] text-gray-400 mt-0.5 px-0.5">
-              <span>L1</span>
-              <span>L2</span>
-              <span>L3</span>
-              <span>L4</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-200"></div>
-
-        {/* Project Actions Section */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Project</h3>
-
-          <div className="flex gap-2">
-            <button
-              onClick={onSaveProject}
-              disabled={placedSpaces.length === 0}
-              className="flex-1 text-white px-2.5 py-2 rounded-md text-xs font-medium disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              style={{
-                backgroundColor: placedSpaces.length === 0 ? undefined : colors.secondary.darkBlue,
-              }}
-              onMouseEnter={(e) => {
-                if (placedSpaces.length > 0) {
-                  e.currentTarget.style.opacity = '0.85';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (placedSpaces.length > 0) {
-                  e.currentTarget.style.opacity = '1';
-                }
-              }}
-            >
-              Save
-            </button>
-            <button
-              onClick={() => onLoadProject?.()}
-              className="flex-1 text-white px-2.5 py-2 rounded-md text-xs font-medium transition-colors"
-              style={{
-                backgroundColor: colors.secondary.oliveGreen,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '0.85';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
-            >
-              Load
-            </button>
-            <button
-              onClick={() => {
-                if (window.confirm('Are you sure you want to clear the canvas? This cannot be undone.')) {
-                  onClearCanvas?.();
-                }
-              }}
-              disabled={placedSpaces.length === 0}
-              className="flex-1 text-white px-2.5 py-2 rounded-md text-xs font-medium disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              style={{
-                backgroundColor: placedSpaces.length === 0 ? undefined : colors.primary.brick,
-              }}
-              onMouseEnter={(e) => {
-                if (placedSpaces.length > 0) {
-                  e.currentTarget.style.opacity = '0.85';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (placedSpaces.length > 0) {
-                  e.currentTarget.style.opacity = '1';
-                }
-              }}
-            >
-              Clear
-            </button>
           </div>
         </div>
       </div>

@@ -47,6 +47,9 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
   const [activePanel, setActivePanel] = useState<PanelType>('library');
   const [timeOfDay, setTimeOfDay] = useState(12); // 12 PM (noon)
   const [monthOfYear, setMonthOfYear] = useState(6); // June
+  const [showGrid, setShowGrid] = useState(true);
+  const [showLabels, setShowLabels] = useState(true);
+  const [showMeasurements, setShowMeasurements] = useState(true);
 
   // Save to localStorage whenever placedSpaces changes
   useEffect(() => {
@@ -329,6 +332,9 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
         presentationMode={presentationMode}
         timeOfDay={timeOfDay}
         monthOfYear={monthOfYear}
+        showGrid={showGrid}
+        showLabels={showLabels}
+        showMeasurements={showMeasurements}
       />
 
       {/* Library Panel */}
@@ -369,6 +375,12 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
         onTimeOfDayChange={setTimeOfDay}
         monthOfYear={monthOfYear}
         onMonthOfYearChange={setMonthOfYear}
+        showGrid={showGrid}
+        onShowGridChange={setShowGrid}
+        showLabels={showLabels}
+        onShowLabelsChange={setShowLabels}
+        showMeasurements={showMeasurements}
+        onShowMeasurementsChange={setShowMeasurements}
       />
 
       {/* Properties Panel */}

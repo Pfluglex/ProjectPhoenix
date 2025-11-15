@@ -133,6 +133,9 @@ interface Canvas3DProps {
   presentationMode?: boolean;
   timeOfDay?: number; // 0-24 hours
   monthOfYear?: number; // 1-12 months
+  showGrid?: boolean;
+  showLabels?: boolean;
+  showMeasurements?: boolean;
 }
 
 // Calculate sun position using proper solar position algorithm
@@ -225,7 +228,10 @@ export function Canvas3D({
   onDeleteMeasurement,
   presentationMode = false,
   timeOfDay = 12,
-  monthOfYear = 6
+  monthOfYear = 6,
+  showGrid = true,
+  showLabels = true,
+  showMeasurements = true
 }: Canvas3DProps) {
   const { componentThemes } = useTheme();
   componentThemes.canvasControls.light;
@@ -391,72 +397,74 @@ export function Canvas3D({
           </>
         )}
 
-        {/* Grid or Ground Plane based on presentation mode */}
-        {presentationMode ? (
-          /* White ground plane for presentation mode */
-          <mesh position={[0, gridY - 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <planeGeometry args={[1000, 1000]} />
-            <meshStandardMaterial
-              color="#ffffff"
-              roughness={0.9}
-              metalness={0}
-            />
-          </mesh>
-        ) : (
-          <>
-            {/* Custom dashed grid */}
-            <group position={[0, gridY, 0]}>
-              {/* Create dashed grid lines */}
-              {Array.from({ length: 201 }, (_, i) => i - 100).map((i) => {
-                const pos = i * 5;
-                const isMajor = i % 6 === 0; // Every 6th line (30 feet)
-                return (
-                  <group key={`grid-${i}`}>
-                    {/* Vertical line */}
-                    <line>
-                      <bufferGeometry>
-                        <bufferAttribute
-                          attach="attributes-position"
-                          count={2}
-                          array={new Float32Array([pos, 0, -500, pos, 0, 500])}
-                          itemSize={3}
-                        />
-                      </bufferGeometry>
-                      <lineDashedMaterial
-                        color={isMajor ? "#9CA3AF" : "#E5E7EB"}
-                        linewidth={isMajor ? 4.5 : 1.5}
-                        dashSize={isMajor ? 10 : 5}
-                        gapSize={isMajor ? 5 : 5}
-                      />
-                    </line>
-                    {/* Horizontal line */}
-                    <line>
-                      <bufferGeometry>
-                        <bufferAttribute
-                          attach="attributes-position"
-                          count={2}
-                          array={new Float32Array([-500, 0, pos, 500, 0, pos])}
-                          itemSize={3}
-                        />
-                      </bufferGeometry>
-                      <lineDashedMaterial
-                        color={isMajor ? "#9CA3AF" : "#E5E7EB"}
-                        linewidth={isMajor ? 4.5 : 1.5}
-                        dashSize={isMajor ? 10 : 5}
-                        gapSize={isMajor ? 5 : 5}
-                      />
-                    </line>
-                  </group>
-                );
-              })}
-            </group>
-
-            {/* Origin marker */}
-            <mesh position={[0, gridY + 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <circleGeometry args={[2, 32]} />
-              <meshBasicMaterial color="#EF4444" />
+        {/* Grid or Ground Plane based on presentation mode and showGrid toggle */}
+        {showGrid && (
+          presentationMode ? (
+            /* White ground plane for presentation mode */
+            <mesh position={[0, gridY - 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+              <planeGeometry args={[1000, 1000]} />
+              <meshStandardMaterial
+                color="#ffffff"
+                roughness={0.9}
+                metalness={0}
+              />
             </mesh>
-          </>
+          ) : (
+            <>
+              {/* Custom dashed grid */}
+              <group position={[0, gridY, 0]}>
+                {/* Create dashed grid lines */}
+                {Array.from({ length: 201 }, (_, i) => i - 100).map((i) => {
+                  const pos = i * 5;
+                  const isMajor = i % 6 === 0; // Every 6th line (30 feet)
+                  return (
+                    <group key={`grid-${i}`}>
+                      {/* Vertical line */}
+                      <line>
+                        <bufferGeometry>
+                          <bufferAttribute
+                            attach="attributes-position"
+                            count={2}
+                            array={new Float32Array([pos, 0, -500, pos, 0, 500])}
+                            itemSize={3}
+                          />
+                        </bufferGeometry>
+                        <lineDashedMaterial
+                          color={isMajor ? "#9CA3AF" : "#E5E7EB"}
+                          linewidth={isMajor ? 4.5 : 1.5}
+                          dashSize={isMajor ? 10 : 5}
+                          gapSize={isMajor ? 5 : 5}
+                        />
+                      </line>
+                      {/* Horizontal line */}
+                      <line>
+                        <bufferGeometry>
+                          <bufferAttribute
+                            attach="attributes-position"
+                            count={2}
+                            array={new Float32Array([-500, 0, pos, 500, 0, pos])}
+                            itemSize={3}
+                          />
+                        </bufferGeometry>
+                        <lineDashedMaterial
+                          color={isMajor ? "#9CA3AF" : "#E5E7EB"}
+                          linewidth={isMajor ? 4.5 : 1.5}
+                          dashSize={isMajor ? 10 : 5}
+                          gapSize={isMajor ? 5 : 5}
+                        />
+                      </line>
+                    </group>
+                  );
+                })}
+              </group>
+
+              {/* Origin marker */}
+              <mesh position={[0, gridY + 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <circleGeometry args={[2, 32]} />
+                <meshBasicMaterial color="#EF4444" />
+              </mesh>
+            </>
+          )
         )}
 
         {/* Invisible ground plane for drag events and measurements */}
@@ -478,8 +486,8 @@ export function Canvas3D({
           <meshBasicMaterial />
         </mesh>
 
-        {/* Persistent measurements */}
-        {measurements.map((measurement) => (
+        {/* Persistent measurements - only shown if showMeasurements is true */}
+        {showMeasurements && measurements.map((measurement) => (
           <Measurement
             key={measurement.id}
             id={measurement.id}
@@ -522,6 +530,7 @@ export function Canvas3D({
             labelMode={labelMode}
             isSelected={selectedSpaceIds.has(space.instanceId)}
             presentationMode={presentationMode}
+            showLabels={showLabels}
             onDragStart={() => setIsDraggingSpace(true)}
             onDragEnd={() => setIsDraggingSpace(false)}
             onMove={(x, y, z) => {
@@ -562,6 +571,7 @@ export function Canvas3D({
             snapInterval={snapInterval}
             currentLevel={currentLevel}
             labelMode={labelMode}
+            showLabels={showLabels}
           />
         )}
 

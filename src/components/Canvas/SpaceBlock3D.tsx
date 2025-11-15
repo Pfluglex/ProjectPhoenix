@@ -1,5 +1,6 @@
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { Mesh, Shape, ExtrudeGeometry, ShapeGeometry, Raycaster, Plane, Vector3, Vector2 } from 'three';
+import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import type { SpaceInstance } from '../../types';
 import { ThreeEvent, useThree } from '@react-three/fiber';
@@ -15,6 +16,7 @@ interface SpaceBlock3DProps {
   labelMode?: 'text' | 'icon';
   isSelected?: boolean;
   presentationMode?: boolean;
+  showLabels?: boolean;
   onDragStart?: () => void;
   onDragEnd?: () => void;
   onMove?: (x: number, y: number, z: number) => void;
@@ -27,7 +29,7 @@ interface SpaceBlock3DProps {
   onToggleSelection?: () => void;
 }
 
-export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 'text', isSelected = false, presentationMode = false, onDragStart, onDragEnd, onMove, onTransform, onDelete, onToggleSelection }: SpaceBlock3DProps) {
+export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 'text', isSelected = false, presentationMode = false, showLabels = true, onDragStart, onDragEnd, onMove, onTransform, onDelete, onToggleSelection }: SpaceBlock3DProps) {
   // Visual filtering based on level
   // In presentation mode, show all spaces at full opacity
   // Otherwise, ghost spaces that are NOT on the current level
@@ -84,6 +86,46 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
 
   // Y position is half the height (so base sits on level's Y position)
   const height = space.height; // Use actual space height
+
+  // Calculate bevel radius for 3D geometry (not used in shadow)
+  //
+  // GEOMETRY CREATION PROCESS:
+  // 1. Create 2D rounded rectangle shape using quadraticCurveTo (vertical corner rounding)
+  // 2. Extrude that shape upward along Z-axis
+  // 3. Apply bevels to top/bottom edges via bevelEnabled (horizontal edge rounding)
+  // 4. Rotate -90° around X-axis to stand upright
+  //
+  // DIMENSIONAL HANDLING:
+  //
+  // XZ PLANE (Width/Depth) - Vertical Edges:
+  // - quadraticCurveTo rounds the 4 vertical corners within the shape bounds
+  // - Corners DON'T expand footprint, they curve inward from corner points
+  // - Shape dimensions (width × depth) already represent final XZ footprint
+  // - ExtrudeGeometry's bevelSize affects top/bottom beveling, NOT XZ expansion
+  // - TODO: Verify if subtracting bevelRadius*2 from width/depth (lines 235-236) is needed
+  //
+  // Y AXIS (Height) - Horizontal Edges:
+  // - bevelThickness adds material on top and bottom edges during extrusion
+  // - Must subtract bevelRadius * 2 from extrusion depth (line 266)
+  // - Must offset mesh up by bevelRadius so bottom bevel sits at Y=0 (line 443)
+  // - Result: bevelRadius + (height - bevelRadius*2) + bevelRadius = space.height ✓
+  //
+  // Minimum dimension for any space is 5 units (5x5x1 minimum)
+  const minDimension = Math.min(space.width, space.depth, space.height);
+  const bevelRadius = useMemo(() => {
+    // For dimensions >= 10: use full 2.5 radius
+    if (minDimension >= 10) {
+      return 2.5;
+    }
+    // For dimensions between 5 and 10: scale linearly from 1.25 to 2.5
+    else if (minDimension >= 5) {
+      return 1.25 + ((minDimension - 5) / (10 - 5)) * (2.5 - 1.25);
+    }
+    // For dimensions < 5 (should not happen, but safety): cap at 1.25
+    else {
+      return 1.25;
+    }
+  }, [minDimension]);
 
   const [targetPosition, setTargetPosition] = useState<[number, number, number]>([
     space.position.x,
@@ -201,30 +243,98 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
   }, [isDragging, camera, gl, position, snapToGrid, onDragEnd, onMove]);
 
 
-  // Create simple extruded rectangle geometry (no rounded edges)
+  // Create extruded rounded rectangle geometry with bevels on all edges
   const geometry = useMemo(() => {
-    const width = space.width;
-    const depth = space.depth;
+    // Subtract bevelSize from width/depth since it expands the geometry outward
+    const width = space.width - (bevelRadius * 2);
+    const depth = space.depth - (bevelRadius * 2);
 
-    // Create a simple rectangle shape
+    // Create a rounded rectangle shape for beveled vertical edges
     const shape = new Shape();
     const x = -width / 2;
     const y = -depth / 2;
+    const radius = bevelRadius;
 
-    shape.moveTo(x, y);
-    shape.lineTo(x + width, y);
-    shape.lineTo(x + width, y + depth);
-    shape.lineTo(x, y + depth);
-    shape.lineTo(x, y);
+    // Start at bottom-left corner (after the radius)
+    shape.moveTo(x + radius, y);
 
-    // Extrude the shape to create 3D geometry
+    // Bottom edge to bottom-right corner
+    shape.lineTo(x + width - radius, y);
+    shape.quadraticCurveTo(x + width, y, x + width, y + radius);
+
+    // Right edge to top-right corner
+    shape.lineTo(x + width, y + depth - radius);
+    shape.quadraticCurveTo(x + width, y + depth, x + width - radius, y + depth);
+
+    // Top edge to top-left corner
+    shape.lineTo(x + radius, y + depth);
+    shape.quadraticCurveTo(x, y + depth, x, y + depth - radius);
+
+    // Left edge back to bottom-left corner
+    shape.lineTo(x, y + radius);
+    shape.quadraticCurveTo(x, y, x + radius, y);
+
+    // Extrude the rounded shape with bevels on top/bottom edges
     const extrudeSettings = {
       steps: 1,
-      depth: height,
+      depth: height - (bevelRadius * 2), // Subtract bevel thickness from height
+      bevelEnabled: true,
+      bevelThickness: bevelRadius,
+      bevelSize: bevelRadius,
+      bevelSegments: 10, // Smooth rounded edges on horizontal bevels
     };
 
-    return new ExtrudeGeometry(shape, extrudeSettings);
-  }, [space.width, space.depth, height]);
+    const geometry = new ExtrudeGeometry(shape, extrudeSettings);
+
+    // Compute smooth vertex normals for better lighting and normal map display
+    geometry.computeVertexNormals();
+
+    // Generate proper UV coordinates for texture mapping
+    // Texture scale: 100 feet = 1 texture repeat
+    const textureScale = 100;
+    const posAttribute = geometry.attributes.position;
+    const normalAttribute = geometry.attributes.normal;
+    const uvs: number[] = [];
+
+    if (posAttribute && normalAttribute) {
+      for (let i = 0; i < posAttribute.count; i++) {
+        const x = posAttribute.getX(i);
+        const y = posAttribute.getY(i);
+        const z = posAttribute.getZ(i);
+
+        const nx = normalAttribute.getX(i);
+        const ny = normalAttribute.getY(i);
+        const nz = normalAttribute.getZ(i);
+
+        // Box/triplanar mapping: choose UV based on dominant normal direction
+        // Scale UVs so 30 feet = 1 texture repeat
+        let u = 0, v = 0;
+        const absNx = Math.abs(nx);
+        const absNy = Math.abs(ny);
+        const absNz = Math.abs(nz);
+
+        if (absNy > absNx && absNy > absNz) {
+          // Top/bottom faces (Y-dominant)
+          u = (x + width / 2) / textureScale;
+          v = (z + depth / 2) / textureScale;
+        } else if (absNx > absNz) {
+          // Side faces (X-dominant)
+          u = (z + depth / 2) / textureScale;
+          v = (y + (height - bevelRadius * 2) / 2) / textureScale;
+        } else {
+          // Front/back faces (Z-dominant)
+          u = (x + width / 2) / textureScale;
+          v = (y + (height - bevelRadius * 2) / 2) / textureScale;
+        }
+
+        uvs.push(u, v);
+      }
+
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    }
+
+    return geometry;
+  }, [space.width, space.depth, height, bevelRadius]);
 
   // The total visual height is exactly space.height
   const totalHeight = height;
@@ -402,12 +512,12 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
       >
         {/* Inner group for scale */}
         <animated.group scale={scale as any}>
-          {/* The 3D extruded rounded rectangle */}
+          {/* The 3D extruded beveled rectangle */}
           <animated.mesh
             ref={meshRef}
             geometry={geometry}
             rotation={[-Math.PI / 2, 0, 0]} // Rotate to stand upright
-            position={[0, 0, 0]} // No offset needed - bottom sits at Y=0
+            position={[0, bevelRadius, 0]} // Offset up by bevelRadius so bottom edge sits at Y=0
         onPointerDown={handlePointerDown}
         onContextMenu={(e) => {
           e.stopPropagation();
@@ -419,10 +529,19 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
       >
         <animated.meshStandardMaterial
           color={getDisplayColor(getSpaceColor(space.type))}
-          roughness={0.5}
-          metalness={0.1}
-          transparent
-          opacity={presentationMode || isOnCurrentLevel ? opacity : 0.3}
+          roughness={0.4}          // 40% roughness - soft plastic sheen
+          metalness={0}            // Non-metallic
+          flatShading={false}      // Use smooth shading (interpolate normals across faces)
+
+          // For ghosted objects on other levels: use traditional transparency
+          {...(!presentationMode && !isOnCurrentLevel
+            ? {
+                transparent: true,
+                opacity: 0.3
+              }
+            : {}
+          )}
+
           depthWrite={!isDragging}
         />
       </animated.mesh>
@@ -432,7 +551,7 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
             <animated.mesh
               geometry={geometry}
               rotation={[-Math.PI / 2, 0, 0]}
-              position={[0, 0, 0]}
+              position={[0, bevelRadius, 0]} // Match main mesh offset
               scale={1.02} // Slightly larger to show as outline
               renderOrder={1}
             >
@@ -495,57 +614,59 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
         </Html>
       )}
 
-      {/* Space label (HTML overlay) - scale based on space size */}
-      <Html
-        position={[0, totalHeight + 5, 0]}
-        center
-        transform
-        sprite // Makes it always face the camera (billboard)
-        scale={Math.min(10, Math.max(6, Math.min(space.width, space.depth) / 4))} // Scale from 6-10 based on smallest dimension
-        zIndexRange={[0, 0]} // Keep z-index low so UI elements appear above
-        pointerEvents="none"
-        style={{
-          pointerEvents: 'none',
-          userSelect: 'none',
-          zIndex: 0,
-        }}
-      >
-        {labelMode === 'icon' ? (
-          // Icon mode - show lucide icon only
-          <div className="flex flex-col items-center gap-1 pointer-events-none select-none">
-            {(() => {
-              const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
-              return IconComponent ? <IconComponent className="w-8 h-8 text-white" /> : null;
-            })()}
-          </div>
-        ) : (
-          // Text mode - show name and dimensions
-          <div
-            className="px-3 py-2 text-center select-none pointer-events-none"
-            style={{
-              maxWidth: `${Math.min(space.width, space.depth) * 10}px`,
-              overflow: 'hidden',
-            }}
-          >
+      {/* Space label (HTML overlay) - scale based on space size - only shown if showLabels is true */}
+      {showLabels && (
+        <Html
+          position={[0, totalHeight + 5, 0]}
+          center
+          transform
+          sprite // Makes it always face the camera (billboard)
+          scale={Math.min(10, Math.max(6, Math.min(space.width, space.depth) / 4))} // Scale from 6-10 based on smallest dimension
+          zIndexRange={[0, 0]} // Keep z-index low so UI elements appear above
+          pointerEvents="none"
+          style={{
+            pointerEvents: 'none',
+            userSelect: 'none',
+            zIndex: 0,
+          }}
+        >
+          {labelMode === 'icon' ? (
+            // Icon mode - show lucide icon only
+            <div className="flex flex-col items-center gap-1 pointer-events-none select-none">
+              {(() => {
+                const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
+                return IconComponent ? <IconComponent className="w-8 h-8 text-white" /> : null;
+              })()}
+            </div>
+          ) : (
+            // Text mode - show name and dimensions
             <div
-              className="text-lg font-bold truncate select-none pointer-events-none"
+              className="px-3 py-2 text-center select-none pointer-events-none"
               style={{
-                color: 'white',
+                maxWidth: `${Math.min(space.width, space.depth) * 10}px`,
+                overflow: 'hidden',
               }}
             >
-              {space.name}
+              <div
+                className="text-lg font-bold truncate select-none pointer-events-none"
+                style={{
+                  color: 'white',
+                }}
+              >
+                {space.name}
+              </div>
+              <div
+                className="text-sm truncate select-none pointer-events-none"
+                style={{
+                  color: 'white',
+                }}
+              >
+                {space.width}' × {space.depth}'
+              </div>
             </div>
-            <div
-              className="text-sm truncate select-none pointer-events-none"
-              style={{
-                color: 'white',
-              }}
-            >
-              {space.width}' × {space.depth}'
-            </div>
-          </div>
-        )}
-      </Html>
+          )}
+        </Html>
+      )}
 
       {/* Resize Form */}
       {isResizing && (
@@ -694,19 +815,24 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 p-3 min-w-[140px]">
             <div className="text-xs font-semibold text-gray-700 mb-2 px-1">Select Level</div>
             <div className="space-y-1.5">
-              {[1, 2, 3, 4].map((level) => (
-                <button
-                  key={level}
-                  onClick={() => handleSelectLevel(level)}
-                  className={`w-full px-3 py-2 rounded-xl text-sm font-medium transition-colors text-left ${
-                    space.level === level
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Level {level}
-                </button>
-              ))}
+              {[1, 2, 3, 4].map((level) => {
+                // Calculate current level from Y position (Y = (level - 1) * 15)
+                const currentLevel = Math.round(space.position.y / 15) + 1;
+                const isCurrentLevel = currentLevel === level;
+                return (
+                  <button
+                    key={level}
+                    onClick={() => handleSelectLevel(level)}
+                    className={`w-full px-3 py-2 rounded-xl text-sm font-medium transition-colors text-left ${
+                      isCurrentLevel
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Level {level}
+                  </button>
+                );
+              })}
             </div>
             <button
               onClick={() => setShowLevelDropdown(false)}
