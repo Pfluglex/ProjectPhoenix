@@ -1,6 +1,17 @@
 // API configuration
 const API_BASE_URL = 'https://phoenix.pflugerarchitects.com/api';
 
+/**
+ * Get auth headers with token from localStorage
+ */
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('auth_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -51,9 +62,7 @@ export async function saveProject(project: Project, spaces: ProjectSpace[], meas
 
     const response = await fetch(`${API_BASE_URL}/projects.php?action=save`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(payload)
     });
 
@@ -76,7 +85,9 @@ export async function saveProject(project: Project, spaces: ProjectSpace[], meas
  */
 export async function loadProject(projectId: string): Promise<{ success: boolean; project?: Project; spaces?: ProjectSpace[]; measurements?: Measurement[]; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/projects.php?action=load&project_id=${encodeURIComponent(projectId)}`);
+    const response = await fetch(`${API_BASE_URL}/projects.php?action=load&project_id=${encodeURIComponent(projectId)}`, {
+      headers: getAuthHeaders()
+    });
     const data = await response.json();
 
     if (!response.ok) {
@@ -100,7 +111,9 @@ export async function loadProject(projectId: string): Promise<{ success: boolean
  */
 export async function listProjects(): Promise<{ success: boolean; projects?: Project[]; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/projects.php?action=list`);
+    const response = await fetch(`${API_BASE_URL}/projects.php?action=list`, {
+      headers: getAuthHeaders()
+    });
     const data = await response.json();
 
     if (!response.ok) {
@@ -123,7 +136,8 @@ export async function listProjects(): Promise<{ success: boolean; projects?: Pro
 export async function deleteProject(projectId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${API_BASE_URL}/projects.php?action=delete&project_id=${encodeURIComponent(projectId)}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders()
     });
     const data = await response.json();
 
@@ -157,7 +171,9 @@ export interface SpaceDefinition {
  */
 export async function listSpaces(): Promise<{ success: boolean; spaces?: SpaceDefinition[]; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/spaces.php?action=list`);
+    const response = await fetch(`${API_BASE_URL}/spaces.php?action=list`, {
+      headers: getAuthHeaders()
+    });
     const data = await response.json();
 
     if (!response.ok) {
@@ -179,7 +195,9 @@ export async function listSpaces(): Promise<{ success: boolean; spaces?: SpaceDe
  */
 export async function getSpace(spaceId: string): Promise<{ success: boolean; space?: SpaceDefinition; error?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/spaces.php?action=get&id=${encodeURIComponent(spaceId)}`);
+    const response = await fetch(`${API_BASE_URL}/spaces.php?action=get&id=${encodeURIComponent(spaceId)}`, {
+      headers: getAuthHeaders()
+    });
     const data = await response.json();
 
     if (!response.ok) {
@@ -206,9 +224,7 @@ export async function createSpace(space: SpaceDefinition): Promise<{ success: bo
 
     const response = await fetch(`${API_BASE_URL}/spaces.php?action=create`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(space)
     });
 
@@ -248,9 +264,7 @@ export async function updateSpace(spaceId: string, updates: Partial<SpaceDefinit
   try {
     const response = await fetch(`${API_BASE_URL}/spaces.php?action=update`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ id: spaceId, ...updates })
     });
 
@@ -273,7 +287,8 @@ export async function updateSpace(spaceId: string, updates: Partial<SpaceDefinit
 export async function deleteSpace(spaceId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${API_BASE_URL}/spaces.php?action=delete&id=${encodeURIComponent(spaceId)}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeaders()
     });
 
     const data = await response.json();

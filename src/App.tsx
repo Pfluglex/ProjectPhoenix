@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ThemeProvider } from "./components/System/ThemeManager"
+import { AuthProvider, useAuth } from "./components/System/AuthContext"
+import { Login } from "./components/MainViews/Login"
 import { AppSidebar } from "./components/SideBars/AppSidebar"
 import { CanvasView } from "./components/MainViews/CanvasView"
 import { SpaceLibrary } from "./components/MainViews/SpaceLibrary"
@@ -9,8 +11,14 @@ import { SettingsView } from "./components/MainViews/SettingsView"
 import type { ActiveView } from "./types"
 
 function MainAppContent() {
+  const { isAuthenticated } = useAuth()
   const [activeView, setActiveView] = useState<ActiveView>('canvas')
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login />
+  }
 
   const handleViewChange = (view: ActiveView) => {
     setActiveView(view)
@@ -69,8 +77,10 @@ function MainAppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <MainAppContent />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <MainAppContent />
+      </ThemeProvider>
+    </AuthProvider>
   )
 }
