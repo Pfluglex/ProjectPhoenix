@@ -27,7 +27,7 @@ function MainAppContent() {
   const renderContent = () => {
     switch (activeView) {
       case 'canvas':
-        return <CanvasView isSidebarExpanded={isSidebarExpanded} />
+        return <CanvasView isSidebarExpanded={isSidebarExpanded} onSidebarExpandedChange={setIsSidebarExpanded} />
       case 'library':
         return <SpaceLibrary />
       case 'metrics':
@@ -35,7 +35,7 @@ function MainAppContent() {
       case 'settings':
         return <SettingsView />
       default:
-        return <CanvasView isSidebarExpanded={isSidebarExpanded} />
+        return <CanvasView isSidebarExpanded={isSidebarExpanded} onSidebarExpandedChange={setIsSidebarExpanded} />
     }
   }
 

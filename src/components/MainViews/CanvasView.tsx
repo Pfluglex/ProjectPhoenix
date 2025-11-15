@@ -10,11 +10,12 @@ import { saveProject, loadProject, type Project, type ProjectSpace } from '../..
 
 interface CanvasViewProps {
   isSidebarExpanded: boolean;
+  onSidebarExpandedChange?: (expanded: boolean) => void;
 }
 
 const TEMP_PROJECT_KEY = 'phoenix_temp_project';
 
-export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
+export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: CanvasViewProps) {
   const [canvasState, setCanvasState] = useState({
     position: { x: 0, y: 0 },
     zoom: 1.5,
@@ -333,6 +334,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
       {/* Library Panel */}
       <LibraryPanel
         isSidebarExpanded={isSidebarExpanded}
+        onSidebarExpandedChange={onSidebarExpandedChange}
         onDragStart={setDraggedSpace}
         onDragEnd={() => setDraggedSpace(null)}
         activePanel={activePanel}
@@ -342,6 +344,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
       {/* Tools Panel */}
       <ToolsPanel
         isSidebarExpanded={isSidebarExpanded}
+        onSidebarExpandedChange={onSidebarExpandedChange}
         snapInterval={snapInterval}
         onSnapIntervalChange={setSnapInterval}
         currentLevel={currentLevel}
@@ -371,6 +374,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
       {/* Properties Panel */}
       <PropertiesPanel
         isSidebarExpanded={isSidebarExpanded}
+        onSidebarExpandedChange={onSidebarExpandedChange}
         placedSpaces={placedSpaces}
         activePanel={activePanel}
         onPanelChange={setActivePanel}

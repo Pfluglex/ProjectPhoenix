@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, PanelLeftOpen } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { useState } from 'react';
 import { useTheme, getSpaceColor, SPACE_TYPE_COLORS } from '../System/ThemeManager';
@@ -7,12 +7,13 @@ import { PanelDots, type PanelType } from './PanelDots';
 
 interface PropertiesPanelProps {
   isSidebarExpanded: boolean;
+  onSidebarExpandedChange?: (expanded: boolean) => void;
   placedSpaces?: any[];
   activePanel: PanelType;
   onPanelChange: (panel: PanelType) => void;
 }
 
-export function PropertiesPanel({ isSidebarExpanded, placedSpaces = [], activePanel, onPanelChange }: PropertiesPanelProps) {
+export function PropertiesPanel({ isSidebarExpanded, onSidebarExpandedChange, placedSpaces = [], activePanel, onPanelChange }: PropertiesPanelProps) {
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasPalette.light;
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
@@ -28,9 +29,10 @@ export function PropertiesPanel({ isSidebarExpanded, placedSpaces = [], activePa
   };
 
   // Calculate left offset (same position as Library and Tools - they stack)
+  // When collapsed, move all the way to the left edge (1rem margin)
   const leftOffset = isSidebarExpanded
     ? 'calc(280px + 2rem + 1rem)' // sidebar + gap (same as library)
-    : 'calc(80px + 2rem + 1rem)';
+    : '1rem';
 
   // Determine if this panel is active
   const isActive = activePanel === 'properties';
@@ -44,15 +46,19 @@ export function PropertiesPanel({ isSidebarExpanded, placedSpaces = [], activePa
         pointerEvents: isActive ? 'auto' : 'none',
         borderWidth: '2px',
         borderStyle: 'solid',
-        borderColor: 'rgba(16, 185, 129, 0.2)' // Green with 20% opacity
+        borderColor: 'rgba(16, 185, 129, 0.2)', // Green with 20% opacity
+        left: leftOffset,
+        transition: 'left 500ms cubic-bezier(0.4, 0, 0.2, 1)'
       }}
       initial={false}
       animate={{
-        left: leftOffset,
         opacity: isActive ? 1 : 0,
         scale: isActive ? 1 : 0.95
       }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
+      transition={{
+        opacity: { duration: 0.3, ease: "easeInOut" },
+        scale: { duration: 0.3, ease: "easeInOut" }
+      }}
     >
       {/* Header */}
       <div
@@ -62,7 +68,21 @@ export function PropertiesPanel({ isSidebarExpanded, placedSpaces = [], activePa
         }}
       >
         <div className="py-3 px-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-800">Properties</h2>
+          <div className="flex items-center gap-2">
+            {/* Collapse button - only show when sidebar is collapsed */}
+            {!isSidebarExpanded && onSidebarExpandedChange && (
+              <motion.button
+                onClick={() => onSidebarExpandedChange(true)}
+                className="h-6 w-6 rounded-md bg-white/80 hover:bg-white flex items-center justify-center transition-all border border-gray-300 hover:border-gray-400 shadow-sm"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                aria-label="Expand sidebar"
+              >
+                <PanelLeftOpen className="h-3.5 w-3.5 text-gray-700" />
+              </motion.button>
+            )}
+            <h2 className="text-sm font-semibold text-gray-800">Properties</h2>
+          </div>
           <PanelDots activePanel={activePanel} onPanelChange={onPanelChange} />
         </div>
       </div>

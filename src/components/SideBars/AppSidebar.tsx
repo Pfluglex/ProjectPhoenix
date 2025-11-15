@@ -22,6 +22,9 @@ export function AppSidebar({ activeView, onViewChange, isExpanded, onExpandedCha
   const { componentThemes } = useTheme()
   const sidebarTheme = componentThemes.sidebar.light
 
+  // Hide sidebar completely when collapsed on canvas view
+  const shouldHideSidebar = !isExpanded && activeView === 'canvas'
+
   // Main navigation items
   const items = [
     {
@@ -52,8 +55,8 @@ export function AppSidebar({ activeView, onViewChange, isExpanded, onExpandedCha
 
   return (
     <>
-      {/* Collapse Button - Floating when expanded, inside sidebar when collapsed */}
-      {isExpanded && (
+      {/* Collapse Button - Floating when expanded, only show if sidebar is visible */}
+      {isExpanded && !shouldHideSidebar && (
         <motion.button
           onClick={() => onExpandedChange(!isExpanded)}
           className={`fixed h-8 w-8 rounded-lg ${sidebarTheme.button.bg} ${sidebarTheme.button.hover} flex items-center justify-center transition-all border ${sidebarTheme.button.border} shadow-md z-[3001]`}
@@ -69,34 +72,21 @@ export function AppSidebar({ activeView, onViewChange, isExpanded, onExpandedCha
         </motion.button>
       )}
 
-      <motion.aside
-        className={`${sidebarTheme.container.bg} ${sidebarTheme.container.backdropBlur} fixed overflow-hidden flex flex-col shrink-0 m-4 rounded-2xl ${sidebarTheme.container.shadow} border ${sidebarTheme.container.border} z-[3000]`}
-        style={{ height: 'calc(100vh - 2rem)' }}
-        initial={false}
-        animate={{
-          width: isExpanded ? 280 : 80
-        }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-      >
-
-      {/* Collapse Button when collapsed - Inside sidebar at top */}
-      {!isExpanded && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="flex justify-center pt-3 pb-2"
-        >
-          <button
-            onClick={() => onExpandedChange(!isExpanded)}
-            className={`h-8 w-8 rounded-lg ${sidebarTheme.button.bg} ${sidebarTheme.button.hover} flex items-center justify-center transition-all border ${sidebarTheme.button.border}`}
-            aria-label="Expand sidebar"
+      <AnimatePresence>
+        {!shouldHideSidebar && (
+          <motion.aside
+            className={`${sidebarTheme.container.bg} ${sidebarTheme.container.backdropBlur} fixed overflow-hidden flex flex-col shrink-0 m-4 rounded-2xl ${sidebarTheme.container.shadow} border ${sidebarTheme.container.border} z-[3000]`}
+            style={{ height: 'calc(100vh - 2rem)' }}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{
+              width: isExpanded ? 280 : 80,
+              opacity: 1,
+              x: 0
+            }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
           >
-            <PanelLeftOpen className="h-4 w-4 text-gray-700" />
-          </button>
-        </motion.div>
-      )}
+
 
       {/* Header with Logo */}
       <div className={`${isExpanded ? 'p-4' : 'p-2'} pb-3 border-b ${sidebarTheme.divider}`}>
@@ -216,6 +206,8 @@ export function AppSidebar({ activeView, onViewChange, isExpanded, onExpandedCha
         </div>
       </div>
     </motion.aside>
+        )}
+      </AnimatePresence>
     </>
   );
 }

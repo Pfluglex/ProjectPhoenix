@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
-import { Ruler, Sun, Calendar } from 'lucide-react';
+import { Ruler, Sun, Calendar, PanelLeftOpen } from 'lucide-react';
 import { useTheme } from '../System/ThemeManager';
 import { PanelDots, type PanelType } from './PanelDots';
 
 interface ToolsPanelProps {
   isSidebarExpanded: boolean;
+  onSidebarExpandedChange?: (expanded: boolean) => void;
   snapInterval?: number;
   onSnapIntervalChange?: (interval: number) => void;
   currentLevel?: number;
@@ -33,6 +34,7 @@ interface ToolsPanelProps {
 
 export function ToolsPanel({
   isSidebarExpanded,
+  onSidebarExpandedChange,
   snapInterval = 5,
   onSnapIntervalChange,
   currentLevel = 1,
@@ -73,9 +75,10 @@ export function ToolsPanel({
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   // Calculate left offset (same position as Library - they stack)
+  // When collapsed, move all the way to the left edge (1rem margin)
   const leftOffset = isSidebarExpanded
     ? 'calc(280px + 2rem + 1rem)' // sidebar + gap (same as library)
-    : 'calc(80px + 2rem + 1rem)';
+    : '1rem';
 
   // Determine if this panel is active
   const isActive = activePanel === 'tools';
@@ -89,15 +92,19 @@ export function ToolsPanel({
         pointerEvents: isActive ? 'auto' : 'none',
         borderWidth: '2px',
         borderStyle: 'solid',
-        borderColor: 'rgba(245, 158, 11, 0.2)' // Amber with 20% opacity
+        borderColor: 'rgba(245, 158, 11, 0.2)', // Amber with 20% opacity
+        left: leftOffset,
+        transition: 'left 500ms cubic-bezier(0.4, 0, 0.2, 1)'
       }}
       initial={false}
       animate={{
-        left: leftOffset,
         opacity: isActive ? 1 : 0,
         scale: isActive ? 1 : 0.95
       }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
+      transition={{
+        opacity: { duration: 0.3, ease: "easeInOut" },
+        scale: { duration: 0.3, ease: "easeInOut" }
+      }}
     >
       {/* Header */}
       <div
@@ -107,7 +114,21 @@ export function ToolsPanel({
         }}
       >
         <div className="py-3 px-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-800">Tools</h2>
+          <div className="flex items-center gap-2">
+            {/* Collapse button - only show when sidebar is collapsed */}
+            {!isSidebarExpanded && onSidebarExpandedChange && (
+              <motion.button
+                onClick={() => onSidebarExpandedChange(true)}
+                className="h-6 w-6 rounded-md bg-white/80 hover:bg-white flex items-center justify-center transition-all border border-gray-300 hover:border-gray-400 shadow-sm"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                aria-label="Expand sidebar"
+              >
+                <PanelLeftOpen className="h-3.5 w-3.5 text-gray-700" />
+              </motion.button>
+            )}
+            <h2 className="text-sm font-semibold text-gray-800">Tools</h2>
+          </div>
           <PanelDots activePanel={activePanel} onPanelChange={onPanelChange} />
         </div>
       </div>
