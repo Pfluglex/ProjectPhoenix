@@ -37,14 +37,12 @@ export function parseSpacesCSV(csvText: string): SpaceDefinition[] {
     // Skip if invalid dimensions
     if (width === 0 || depth === 0) continue;
 
-    // Get category, type, and icon from CSV
-    const category = (row.Cat || 'generic').toLowerCase();
-    const type = (row.type || 'generic') as 'program' | 'circulation' | 'support' | 'generic';
+    // Get type and icon from CSV
+    const type = (row.type || 'generic') as 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic';
     const icon = row.icon || 'Square'; // Default icon
 
     definitions.push({
       id: row.id,
-      category,
       name: row.name,
       width,
       depth,
@@ -84,7 +82,6 @@ export function createSpaceInstance(
     id: definition.id,
     templateId: definition.id,
     instanceId: `${definition.id}-instance-${instanceNumber}`,
-    category: definition.category,
     name: definition.name,
     position,
     width: definition.width,
@@ -101,17 +98,17 @@ export function createSpaceInstance(
  */
 export function getSpacesSummary(spaces: SpaceDefinition[]) {
   const totalSF = spaces.reduce((sum, space) => sum + (space.width * space.depth), 0);
-  const categories = [...new Set(spaces.map(s => s.category))];
-  const byCategory = categories.map(cat => ({
-    category: cat,
-    count: spaces.filter(s => s.category === cat).length,
-    sf: spaces.filter(s => s.category === cat).reduce((sum, s) => sum + (s.width * s.depth), 0)
+  const types = [...new Set(spaces.map(s => s.type))];
+  const byType = types.map(type => ({
+    type,
+    count: spaces.filter(s => s.type === type).length,
+    sf: spaces.filter(s => s.type === type).reduce((sum, s) => sum + (s.width * s.depth), 0)
   }));
 
   return {
     totalSpaces: spaces.length,
     totalSF,
-    categories: byCategory
+    types: byType
   };
 }
 
@@ -134,11 +131,10 @@ export interface ProjectSpace {
   template_id: string;
   id: string;
   name: string;
-  category: string;
   width: number;
   depth: number;
   height: number;
-  color: string;
+  type: string;
   icon: string;
   position_x: number;
   position_y: number;
@@ -205,16 +201,15 @@ export async function loadProjectSpacesFromCSV(): Promise<ProjectSpace[]> {
         template_id: values[2],
         id: values[3],
         name: values[4],
-        category: values[5],
-        width: parseFloat(values[6]),
-        depth: parseFloat(values[7]),
-        height: parseFloat(values[8]),
-        color: values[9],
-        icon: values[10],
-        position_x: parseFloat(values[11]),
-        position_y: parseFloat(values[12]),
-        position_z: parseFloat(values[13]),
-        rotation: parseFloat(values[14])
+        width: parseFloat(values[5]),
+        depth: parseFloat(values[6]),
+        height: parseFloat(values[7]),
+        type: values[8],
+        icon: values[9],
+        position_x: parseFloat(values[10]),
+        position_y: parseFloat(values[11]),
+        position_z: parseFloat(values[12]),
+        rotation: parseFloat(values[13])
       });
     }
 
@@ -240,9 +235,9 @@ export function projectsToCSV(projects: Project[]): string {
  * Convert project spaces array to CSV string
  */
 export function projectSpacesToCSV(spaces: ProjectSpace[]): string {
-  const header = 'Project ID,Space Instance ID,Template ID,ID,Name,Category,Width,Depth,Height,Color,Icon,Position X,Position Y,Position Z,Rotation';
+  const header = 'Project ID,Space Instance ID,Template ID,ID,Name,Width,Depth,Height,Type,Icon,Position X,Position Y,Position Z,Rotation';
   const rows = spaces.map(s =>
-    `"${s.project_id}","${s.space_instance_id}","${s.template_id}","${s.id}","${s.name}","${s.category}",${s.width},${s.depth},${s.height},"${s.color}","${s.icon}",${s.position_x},${s.position_y},${s.position_z},${s.rotation}`
+    `"${s.project_id}","${s.space_instance_id}","${s.template_id}","${s.id}","${s.name}",${s.width},${s.depth},${s.height},"${s.type}","${s.icon}",${s.position_x},${s.position_y},${s.position_z},${s.rotation}`
   );
   return [header, ...rows].join('\n');
 }

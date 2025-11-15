@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Canvas2D } from '../Canvas/Canvas2D';
 import { Canvas3D } from '../Canvas/Canvas3D';
 import { SpacePalette } from '../Canvas/SpacePalette';
 import { LoadProjectModal } from '../Canvas/LoadProjectModal';
@@ -46,7 +45,6 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
       template_id: space.templateId,
       id: space.id,
       name: space.name,
-      category: space.category,
       width: space.width,
       depth: space.depth,
       height: space.height,
@@ -88,7 +86,6 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         templateId: s.template_id,
         id: s.id,
         name: s.name,
-        category: s.category,
         width: s.width,
         depth: s.depth,
         height: s.height,
@@ -99,7 +96,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
           y: s.position_y,
           z: s.position_z
         },
-        rotation: s.rotation
+        rotation: (s.rotation === 0 || s.rotation === 90 || s.rotation === 180 || s.rotation === 270) ? s.rotation : 0
       }));
 
       // Confirm if replacing existing spaces
@@ -140,7 +137,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
           ? {
               ...space,
               position,
-              rotation,
+              rotation: (rotation === 0 || rotation === 90 || rotation === 180 || rotation === 270) ? rotation : 0,
               width: space.width * scale.x,
               depth: space.depth * scale.z,
               height: space.height * scale.y,

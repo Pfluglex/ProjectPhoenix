@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronDown, ChevronRight, Settings } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { listSpaces, type SpaceDefinition } from '../../lib/api';
 import { useTheme, getSpaceColor, SPACE_TYPE_COLORS } from '../System/ThemeManager';
@@ -21,7 +21,7 @@ interface SpacePaletteProps {
   onLoadProject?: (projectId?: string) => void;
 }
 
-export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange, placedSpaces = [], onSaveProject, onClearCanvas, onLoadProject }: SpacePaletteProps) {
+export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange, placedSpaces = [], onSaveProject, onClearCanvas, onLoadProject }: SpacePaletteProps) {
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasPalette.light;
   const [spaces, setSpaces] = useState<SpaceDefinition[]>([]);
@@ -174,12 +174,12 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
                           key={`recent-${space.id}`}
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
-                          draggable
-                          onDragStart={(e) => {
+                          className={`p-1.5 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder} bg-white select-none`}
+                          draggable="true"
+                          onDragStart={(e: any) => {
                             e.dataTransfer.setData('application/json', JSON.stringify(space));
                             e.dataTransfer.effectAllowed = 'copy';
                           }}
-                          className={`p-1.5 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder} bg-white select-none`}
                         >
                           <div className="flex items-center gap-2 pointer-events-none">
                             <div
@@ -259,8 +259,9 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
                               initial={{ opacity: 0, x: -10 }}
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: index * 0.03 }}
-                              draggable
-                              onDragStart={(e) => {
+                              className={`p-1.5 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder} select-none`}
+                              draggable="true"
+                              onDragStart={(e: any) => {
                                 e.dataTransfer.setData('application/json', JSON.stringify(space));
                                 e.dataTransfer.effectAllowed = 'copy';
 
@@ -270,7 +271,6 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
                                   return [space, ...filtered].slice(0, 5);
                                 });
                               }}
-                              className={`p-1.5 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder} select-none`}
                             >
                               <div className="flex items-center gap-2 pointer-events-none">
                                 <div

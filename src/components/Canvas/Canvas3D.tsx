@@ -1,11 +1,10 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid } from '@react-three/drei';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { OrbitControls } from '@react-three/drei';
+import * as THREE from 'three';
 import { useTheme } from '../System/ThemeManager';
 import type { SpaceInstance } from '../../types';
 import { SpaceBlock3D } from './SpaceBlock3D';
-import * as THREE from 'three';
 
 interface Canvas3DProps {
   width?: number;
@@ -21,10 +20,7 @@ interface Canvas3DProps {
 }
 
 export function Canvas3D({
-  width = 1200,
-  height = 800,
   placedSpaces = [],
-  onCanvasStateChange,
   onSpaceDrop,
   onSpaceMove,
   onSpaceTransform,
@@ -33,7 +29,7 @@ export function Canvas3D({
   labelMode = 'text'
 }: Canvas3DProps) {
   const { componentThemes } = useTheme();
-  const theme = componentThemes.canvasControls.light;
+  componentThemes.canvasControls.light;
   const [isDraggingFromPalette, setIsDraggingFromPalette] = useState(false);
   const [isDraggingSpace, setIsDraggingSpace] = useState(false);
   const controlsRef = useRef<any>(null);

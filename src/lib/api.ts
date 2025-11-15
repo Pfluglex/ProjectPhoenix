@@ -14,12 +14,11 @@ export interface ProjectSpace {
   template_id: string;
   id: string;
   name: string;
-  category: string;
   width: number;
   depth: number;
   height: number;
   icon: string;
-  type: 'program' | 'circulation' | 'support' | 'generic';
+  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic';
   position_x: number;
   position_y: number;
   position_z: number;
@@ -132,12 +131,11 @@ export async function deleteProject(projectId: string): Promise<{ success: boole
 
 export interface SpaceDefinition {
   id: string;
-  category: string;
   name: string;
   width: number;
   depth: number;
   height: number;
-  type: 'program' | 'circulation' | 'support' | 'generic';
+  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic';
   icon: string;
 }
 

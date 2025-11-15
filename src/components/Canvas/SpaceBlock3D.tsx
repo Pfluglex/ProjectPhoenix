@@ -3,10 +3,9 @@ import { Mesh, Shape, ExtrudeGeometry, Raycaster, Plane, Vector3, Vector2 } from
 import { Html } from '@react-three/drei';
 import type { SpaceInstance } from '../../types';
 import { ThreeEvent, useThree } from '@react-three/fiber';
-import * as THREE from 'three';
 import * as LucideIcons from 'lucide-react';
 import { SpaceControls } from './SpaceControls';
-import { useSpring, animated, config } from '@react-spring/three';
+import { useSpring, animated } from '@react-spring/three';
 import { getSpaceColor } from '../System/ThemeManager';
 
 interface SpaceBlock3DProps {
@@ -70,7 +69,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
   useEffect(() => {
     if (!showControls) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = () => {
       // Don't close if clicking on controls
       if (controlsHovered) return;
       setShowControls(false);
