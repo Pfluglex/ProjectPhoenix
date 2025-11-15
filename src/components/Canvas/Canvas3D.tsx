@@ -192,7 +192,7 @@ function calculateSunPosition(timeOfDay: number, monthOfYear: number, latitude: 
 
   const x = distance * Math.cos(elevationRad) * Math.cos(azimuthFor3D);
   const y = distance * Math.sin(elevationRad);
-  const z = distance * Math.cos(elevationRad) * Math.sin(azimuthFor3D);
+  const z = -distance * Math.cos(elevationRad) * Math.sin(azimuthFor3D); // Negated for correct N/S orientation
 
   // Calculate intensity based on elevation (0 at horizon, max at zenith)
   const intensity = Math.max(0.1, Math.sin(elevationRad) * 1.5);
@@ -568,7 +568,7 @@ export function Canvas3D({
         {/* Camera Controls */}
         <OrbitControls
           ref={controlsRef}
-          enableRotate={false} // Completely disable rotation
+          enableRotate={cameraAngle === 45} // Enable rotation only in isometric view (45°)
           enablePan={!isDraggingSpace} // Disable pan when dragging a space
           enableZoom={true}
           enableDamping={true}

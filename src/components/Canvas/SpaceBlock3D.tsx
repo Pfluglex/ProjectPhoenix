@@ -83,7 +83,8 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
   };
 
   // Y position is half the height (so base sits on level's Y position)
-  const height = 1; // Fixed height for now
+  const height = space.height; // Use actual space height
+
   const [targetPosition, setTargetPosition] = useState<[number, number, number]>([
     space.position.x,
     space.position.y,
@@ -91,13 +92,12 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
   ]);
 
   // Animated position with spring physics
-  const { position, opacity, yOffset, scale } = useSpring({
+  const { position, opacity, scale } = useSpring({
     position: targetPosition,
     opacity: isDragging ? 0.3 : 1, // Ghosted when dragging
-    yOffset: isDragging ? 2 : 0, // Small pop up when grabbed for haptic feel
     scale: isDragging ? 0.9 : 1, // Shrink slightly when grabbed
     config: (key) => {
-      if (key === 'yOffset' || key === 'scale') {
+      if (key === 'scale') {
         return { tension: 800, friction: 25 }; // Snappy pop for haptic feel
       }
       return { tension: 300, friction: 20 }; // Normal spring for everything else
@@ -201,76 +201,52 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
   }, [isDragging, camera, gl, position, snapToGrid, onDragEnd, onMove]);
 
 
-  // Create extruded rounded rectangle geometry
+  // Create simple extruded rectangle geometry (no rounded edges)
   const geometry = useMemo(() => {
-    // Calculate bevel size based on smallest dimension
-    const minDimension = Math.min(space.width, space.depth);
-    const bevelSize = minDimension <= 15 ? Math.max(1, minDimension * 0.15) : 5;
+    const width = space.width;
+    const depth = space.depth;
 
-    // Shrink the base shape by the bevel size so final dimensions match space.width/depth
-    const width = space.width - (bevelSize * 2);
-    const depth = space.depth - (bevelSize * 2);
-
-    // Corner radius scales with bevel - smaller bevels need smaller corners
-    const radius = Math.max(0.5, bevelSize * 0.4);
-
-    // Create a rounded rectangle shape
+    // Create a simple rectangle shape
     const shape = new Shape();
     const x = -width / 2;
     const y = -depth / 2;
 
-    shape.moveTo(x, y + radius);
-    shape.lineTo(x, y + depth - radius);
-    shape.quadraticCurveTo(x, y + depth, x + radius, y + depth);
-    shape.lineTo(x + width - radius, y + depth);
-    shape.quadraticCurveTo(x + width, y + depth, x + width, y + depth - radius);
-    shape.lineTo(x + width, y + radius);
-    shape.quadraticCurveTo(x + width, y, x + width - radius, y);
-    shape.lineTo(x + radius, y);
-    shape.quadraticCurveTo(x, y, x, y + radius);
+    shape.moveTo(x, y);
+    shape.lineTo(x + width, y);
+    shape.lineTo(x + width, y + depth);
+    shape.lineTo(x, y + depth);
+    shape.lineTo(x, y);
 
     // Extrude the shape to create 3D geometry
     const extrudeSettings = {
       steps: 1,
       depth: height,
-      bevelEnabled: true,
-      bevelThickness: bevelSize,
-      bevelSize: bevelSize,
-      bevelSegments: 10,
     };
 
     return new ExtrudeGeometry(shape, extrudeSettings);
   }, [space.width, space.depth, height]);
 
-  // Calculate actual geometry height including bevels
-  const minDimension = Math.min(space.width, space.depth);
-  const bevelSize = minDimension <= 15 ? Math.max(1, minDimension * 0.15) : 5;
-  const totalHeight = height + (bevelSize * 2); // height + bevel on both ends
+  // The total visual height is exactly space.height
+  const totalHeight = height;
 
-  // Create flat shadow geometry (just the 2D rounded rectangle shape)
+  // Create flat shadow geometry (simple rectangle to match main geometry)
   const shadowGeometry = useMemo(() => {
-    // Use full dimensions for shadow (including bevel area)
     const width = space.width;
     const depth = space.depth;
-    const radius = Math.max(0.5, bevelSize * 0.4);
 
-    // Create a rounded rectangle shape
+    // Create a simple rectangle shape
     const shape = new Shape();
     const x = -width / 2;
     const y = -depth / 2;
 
-    shape.moveTo(x, y + radius);
-    shape.lineTo(x, y + depth - radius);
-    shape.quadraticCurveTo(x, y + depth, x + radius, y + depth);
-    shape.lineTo(x + width - radius, y + depth);
-    shape.quadraticCurveTo(x + width, y + depth, x + width, y + depth - radius);
-    shape.lineTo(x + width, y + radius);
-    shape.quadraticCurveTo(x + width, y, x + width - radius, y);
-    shape.lineTo(x + radius, y);
-    shape.quadraticCurveTo(x, y, x, y + radius);
+    shape.moveTo(x, y);
+    shape.lineTo(x + width, y);
+    shape.lineTo(x + width, y + depth);
+    shape.lineTo(x, y + depth);
+    shape.lineTo(x, y);
 
     return new ShapeGeometry(shape);
-  }, [space.width, space.depth, bevelSize]);
+  }, [space.width, space.depth]);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
@@ -394,7 +370,8 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
     }
   };
 
-  const animatedPosition = position.to((x, y, z) => [x, y, z]) as any;
+  // Use position directly without any offset
+  const animatedPosition = position as any;
 
   return (
     <>
@@ -418,20 +395,19 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
         </animated.group>
       )}
 
-      {/* Main space group - this one gets lifted */}
+      {/* Main space group - positioned and rotated */}
       <animated.group
         position={animatedPosition}
-        scale={scale as any}
         rotation={[0, ((space.rotation || 0) * Math.PI) / 180, 0]}
       >
-
-
-      {/* The 3D extruded rounded rectangle */}
-      <animated.mesh
-        ref={meshRef}
-        geometry={geometry}
-        rotation={[-Math.PI / 2, 0, 0]} // Rotate to stand upright
-        position={[0, totalHeight / 2, 0]} // Lift by half total height (including bevels) so base sits on ground
+        {/* Inner group for scale */}
+        <animated.group scale={scale as any}>
+          {/* The 3D extruded rounded rectangle */}
+          <animated.mesh
+            ref={meshRef}
+            geometry={geometry}
+            rotation={[-Math.PI / 2, 0, 0]} // Rotate to stand upright
+            position={[0, 0, 0]} // No offset needed - bottom sits at Y=0
         onPointerDown={handlePointerDown}
         onContextMenu={(e) => {
           e.stopPropagation();
@@ -451,28 +427,29 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
         />
       </animated.mesh>
 
-      {/* Selection outline - blue glow when selected */}
-      {isSelected && (
-        <animated.mesh
-          geometry={geometry}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, totalHeight / 2, 0]}
-          scale={1.02} // Slightly larger to show as outline
-          renderOrder={1}
-        >
+          {/* Selection outline - blue glow when selected */}
+          {isSelected && (
+            <animated.mesh
+              geometry={geometry}
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={[0, 0, 0]}
+              scale={1.02} // Slightly larger to show as outline
+              renderOrder={1}
+            >
           <meshBasicMaterial
             color="#3B82F6"
             transparent
             opacity={0.4}
             depthWrite={false}
           />
-        </animated.mesh>
-      )}
+            </animated.mesh>
+          )}
+        </animated.group>
 
-      {/* Controls (appears on right-click) */}
+      {/* Controls (appears on right-click) - outside the scaled group */}
       {(showControls || controlsHovered) && !isDragging && (
         <Html
-          position={[0, height + 1, 0]}
+          position={[0, totalHeight + 1, 0]}
           center
           sprite
           zIndexRange={[100, 100]}
@@ -502,7 +479,7 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
       {/* Selection badge */}
       {isSelected && (
         <Html
-          position={[0, height + 10, 0]}
+          position={[0, totalHeight + 10, 0]}
           center
           sprite
           zIndexRange={[10, 10]}
@@ -520,7 +497,7 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
 
       {/* Space label (HTML overlay) - scale based on space size */}
       <Html
-        position={[0, height + 5, 0]}
+        position={[0, totalHeight + 5, 0]}
         center
         transform
         sprite // Makes it always face the camera (billboard)
@@ -573,7 +550,7 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
       {/* Resize Form */}
       {isResizing && (
         <Html
-          position={[0, height + 1, 0]}
+          position={[0, totalHeight + 1, 0]}
           center
           sprite
           zIndexRange={[100, 100]}
@@ -708,7 +685,7 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
       {/* Level Dropdown */}
       {showLevelDropdown && (
         <Html
-          position={[0, height + 1, 0]}
+          position={[0, totalHeight + 1, 0]}
           center
           sprite
           zIndexRange={[100, 100]}
