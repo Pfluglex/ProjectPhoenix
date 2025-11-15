@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Ruler, Sun, Calendar, PanelLeftOpen, Save, FolderOpen, Trash2 } from 'lucide-react';
+import { Ruler, Sun, Calendar, PanelLeftOpen, Save, FolderOpen, Trash2, Undo } from 'lucide-react';
 import { useTheme } from '../System/ThemeManager';
 import { PanelDots, type PanelType } from './PanelDots';
 
@@ -18,6 +18,8 @@ interface ToolsPanelProps {
   onSaveProject?: () => void;
   onClearCanvas?: () => void;
   onLoadProject?: (projectId?: string) => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
   measureMode?: boolean;
   onMeasureModeChange?: (enabled: boolean) => void;
   measurementCount?: number;
@@ -53,6 +55,8 @@ export function ToolsPanel({
   onSaveProject,
   onClearCanvas,
   onLoadProject,
+  onUndo,
+  canUndo = false,
   measureMode = false,
   onMeasureModeChange,
   measurementCount = 0,
@@ -223,6 +227,30 @@ export function ToolsPanel({
             >
               <Trash2 className="w-5 h-5" />
             </button>
+            <button
+              onClick={onUndo}
+              disabled={!canUndo}
+              className="flex items-center justify-center w-10 h-10 rounded-xl disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
+              style={{
+                backgroundColor: !canUndo ? undefined : 'rgba(139, 92, 246, 0.5)',
+                color: '#ffffff'
+              }}
+              onMouseEnter={(e) => {
+                if (canUndo) {
+                  e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 1)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(139, 92, 246, 0.3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canUndo) {
+                  e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.5)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
+              title="Undo"
+            >
+              <Undo className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
@@ -243,7 +271,7 @@ export function ToolsPanel({
                 onClick={() => onMeasureModeChange?.(!measureMode)}
                 className="flex items-center justify-center w-10 h-10 rounded-xl transition-all hover:scale-105 active:scale-95"
                 style={{
-                  backgroundColor: 'rgba(168, 85, 247, 0.5)',
+                  backgroundColor: measureMode ? 'rgba(168, 85, 247, 1)' : 'rgba(168, 85, 247, 0.5)',
                   color: '#ffffff',
                   boxShadow: measureMode ? '0 2px 8px rgba(168, 85, 247, 0.3)' : undefined
                 }}
@@ -252,7 +280,7 @@ export function ToolsPanel({
                   e.currentTarget.style.boxShadow = '0 2px 8px rgba(168, 85, 247, 0.3)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 0.5)';
+                  e.currentTarget.style.backgroundColor = measureMode ? 'rgba(168, 85, 247, 1)' : 'rgba(168, 85, 247, 0.5)';
                   e.currentTarget.style.boxShadow = measureMode ? '0 2px 8px rgba(168, 85, 247, 0.3)' : 'none';
                 }}
                 title={measureMode ? 'Stop Measuring' : 'Start Measuring'}

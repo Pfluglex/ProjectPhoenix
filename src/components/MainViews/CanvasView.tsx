@@ -51,6 +51,56 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
   const [showLabels, setShowLabels] = useState(true);
   const [showMeasurements, setShowMeasurements] = useState(true);
 
+  // History for undo functionality
+  const [history, setHistory] = useState<Array<{
+    spaces: SpaceInstance[];
+    measurements: Array<{ id: string; point1: { x: number; z: number }; point2: { x: number; z: number } }>;
+  }>>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Initialize history with initial state
+  useEffect(() => {
+    if (history.length === 0) {
+      setHistory([{
+        spaces: JSON.parse(JSON.stringify(placedSpaces)),
+        measurements: []
+      }]);
+      setHistoryIndex(0);
+    }
+  }, []); // Only run once on mount
+
+  // Save state to history
+  const saveToHistory = () => {
+    const newHistoryEntry = {
+      spaces: JSON.parse(JSON.stringify(placedSpaces)),
+      measurements: JSON.parse(JSON.stringify(measurements))
+    };
+
+    // Remove any future history if we're not at the end
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newHistoryEntry);
+
+    // Limit history to 50 entries
+    if (newHistory.length > 50) {
+      newHistory.shift();
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    } else {
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    }
+  };
+
+  // Undo handler
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const previousState = history[historyIndex - 1];
+      setPlacedSpaces(JSON.parse(JSON.stringify(previousState.spaces)));
+      setMeasurements(JSON.parse(JSON.stringify(previousState.measurements)));
+      setHistoryIndex(historyIndex - 1);
+    }
+  };
+
   // Save to localStorage whenever placedSpaces changes
   useEffect(() => {
     try {
@@ -65,6 +115,7 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
   }, [placedSpaces]);
 
   const handleSpaceDrop = (space: SpaceInstance) => {
+    saveToHistory();
     console.log('✅ [CANVASVIEW] Space dropped and added to state:', space.name, '| Position:', space.position, '| Level:', space.level);
     setPlacedSpaces((prev) => [...prev, space]);
   };
@@ -115,6 +166,7 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
   };
 
   const handleClearCanvas = () => {
+    saveToHistory();
     setPlacedSpaces([]);
     setMeasurements([]);
     setMeasurePoints([]);
@@ -238,7 +290,13 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
     );
   };
 
+  const handleSpaceDragEnd = () => {
+    // Save to history when any drag/transform operation ends
+    saveToHistory();
+  };
+
   const handleSpaceDelete = (instanceId: string) => {
+    saveToHistory();
     setPlacedSpaces((prev) => prev.filter((space) => space.instanceId !== instanceId));
     // Remove from selection if it was selected
     setSelectedSpaceIds((prev) => {
@@ -270,6 +328,7 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
       setMeasurePoints([{ x, z }]);
     } else if (measurePoints.length === 1) {
       // Second point - save measurement and add second point to array
+      saveToHistory();
       const newMeasurement = {
         id: `measure_${Date.now()}`,
         point1: measurePoints[0],
@@ -288,10 +347,12 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
   };
 
   const handleDeleteMeasurement = (id: string) => {
+    saveToHistory();
     setMeasurements((prev) => prev.filter(m => m.id !== id));
   };
 
   const handleClearAllMeasurements = () => {
+    saveToHistory();
     setMeasurements([]);
     setMeasurePoints([]);
   };
@@ -317,6 +378,7 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
         onSpaceMove={handleSpaceMove}
         onSpaceTransform={handleSpaceTransform}
         onSpaceDelete={handleSpaceDelete}
+        onSpaceDragEnd={handleSpaceDragEnd}
         snapInterval={snapInterval}
         currentLevel={currentLevel}
         labelMode={labelMode}
@@ -363,6 +425,8 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
         onSaveProject={handleSaveProject}
         onLoadProject={() => setShowLoadModal(true)}
         onClearCanvas={handleClearCanvas}
+        onUndo={handleUndo}
+        canUndo={historyIndex > 0}
         measureMode={measureMode}
         onMeasureModeChange={setMeasureMode}
         measurementCount={measurements.length}

@@ -118,6 +118,7 @@ interface Canvas3DProps {
   onSpaceMove?: (instanceId: string, x: number, y: number, z: number) => void;
   onSpaceTransform?: (instanceId: string, position: { x: number; y: number; z: number }, rotation: number, scale: { x: number; y: number; z: number }) => void;
   onSpaceDelete?: (instanceId: string) => void;
+  onSpaceDragEnd?: () => void;
   snapInterval?: number;
   currentLevel?: number;
   labelMode?: 'text' | 'icon';
@@ -214,6 +215,7 @@ export function Canvas3D({
   onSpaceMove,
   onSpaceTransform,
   onSpaceDelete,
+  onSpaceDragEnd,
   snapInterval = 5,
   currentLevel = 1,
   labelMode = 'text',
@@ -532,7 +534,10 @@ export function Canvas3D({
             presentationMode={presentationMode}
             showLabels={showLabels}
             onDragStart={() => setIsDraggingSpace(true)}
-            onDragEnd={() => setIsDraggingSpace(false)}
+            onDragEnd={() => {
+              setIsDraggingSpace(false);
+              onSpaceDragEnd?.();
+            }}
             onMove={(x, y, z) => {
               if (onSpaceMove) {
                 onSpaceMove(space.instanceId, x, y, z);
