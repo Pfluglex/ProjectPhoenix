@@ -100,7 +100,7 @@ function loadProject() {
         $stmt->close();
 
         // Get project spaces
-        $stmt = $conn->prepare("SELECT project_id, space_instance_id, template_id, space_id as id, name, category, width, depth, height, icon, type, position_x, position_y, position_z, rotation FROM project_spaces WHERE project_id = ?");
+        $stmt = $conn->prepare("SELECT project_id, space_instance_id, template_id, space_id as id, name, width, depth, height, icon, type, position_x, position_y, position_z, rotation FROM project_spaces WHERE project_id = ?");
         $stmt->bind_param('s', $project_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -188,17 +188,16 @@ function saveProject() {
 
         // Insert spaces
         if (!empty($spaces)) {
-            $stmt = $conn->prepare("INSERT INTO project_spaces (project_id, space_instance_id, template_id, space_id, name, category, width, depth, height, icon, type, position_x, position_y, position_z, rotation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $conn->prepare("INSERT INTO project_spaces (project_id, space_instance_id, template_id, space_id, name, width, depth, height, icon, type, position_x, position_y, position_z, rotation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
             foreach ($spaces as $space) {
                 $stmt->bind_param(
-                    'ssssssdddssdddd',
+                    'sssssdddssdddd',
                     $space['project_id'],
                     $space['space_instance_id'],
                     $space['template_id'],
                     $space['id'],
                     $space['name'],
-                    $space['category'],
                     $space['width'],
                     $space['depth'],
                     $space['height'],
