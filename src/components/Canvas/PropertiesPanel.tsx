@@ -1,35 +1,69 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import { useTheme, getSpaceColor } from '../System/ThemeManager';
+import { useState } from 'react';
+import { useTheme, getSpaceColor, SPACE_TYPE_COLORS } from '../System/ThemeManager';
+import { PanelDots, type PanelType } from './PanelDots';
 
 interface PropertiesPanelProps {
   isSidebarExpanded: boolean;
   placedSpaces?: any[];
+  activePanel: PanelType;
+  onPanelChange: (panel: PanelType) => void;
 }
 
-export function PropertiesPanel({ isSidebarExpanded, placedSpaces = [] }: PropertiesPanelProps) {
+export function PropertiesPanel({ isSidebarExpanded, placedSpaces = [], activePanel, onPanelChange }: PropertiesPanelProps) {
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasPalette.light;
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
-  // Calculate left offset (positioned next to Tools panel)
+  const toggleSection = (sectionId: string) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(sectionId)) {
+      newExpanded.delete(sectionId);
+    } else {
+      newExpanded.add(sectionId);
+    }
+    setExpandedSections(newExpanded);
+  };
+
+  // Calculate left offset (same position as Library and Tools - they stack)
   const leftOffset = isSidebarExpanded
-    ? 'calc(280px + 2rem + 1rem + 320px + 1rem + 288px + 1rem)' // sidebar + library + tools + gaps
-    : 'calc(80px + 2rem + 1rem + 320px + 1rem + 288px + 1rem)';
+    ? 'calc(280px + 2rem + 1rem)' // sidebar + gap (same as library)
+    : 'calc(80px + 2rem + 1rem)';
+
+  // Determine if this panel is active
+  const isActive = activePanel === 'properties';
 
   return (
     <motion.div
-      className={`absolute top-4 w-80 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
+      className={`absolute top-4 w-72 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} flex flex-col`}
       style={{
-        height: 'calc(100vh - 2rem)'
+        height: 'calc(100vh - 2rem)',
+        zIndex: isActive ? 20 : 10,
+        pointerEvents: isActive ? 'auto' : 'none',
+        borderWidth: '2px',
+        borderStyle: 'solid',
+        borderColor: 'rgba(16, 185, 129, 0.2)' // Green with 20% opacity
       }}
       initial={false}
-      animate={{ left: leftOffset }}
+      animate={{
+        left: leftOffset,
+        opacity: isActive ? 1 : 0,
+        scale: isActive ? 1 : 0.95
+      }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-gray-200">
-        <div className="py-3 px-4">
+      <div
+        className="flex-shrink-0 border-b border-gray-200"
+        style={{
+          backgroundColor: 'rgba(16, 185, 129, 0.05)' // Green with 5% opacity
+        }}
+      >
+        <div className="py-3 px-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-800">Properties</h2>
+          <PanelDots activePanel={activePanel} onPanelChange={onPanelChange} />
         </div>
       </div>
 
@@ -95,6 +129,17 @@ export function PropertiesPanel({ isSidebarExpanded, placedSpaces = [] }: Proper
               .map(([level, levelSpaces]) => {
                 const spacesArray = levelSpaces as typeof placedSpaces;
                 const levelTotal = spacesArray.reduce((sum: number, space: typeof placedSpaces[0]) => sum + (space.width * space.depth), 0);
+
+                // Group spaces by type within this level
+                const spacesByType = spacesArray.reduce((acc, space) => {
+                  const type = space.type || 'generic';
+                  if (!acc[type]) {
+                    acc[type] = [];
+                  }
+                  acc[type].push(space);
+                  return acc;
+                }, {} as Record<string, typeof spacesArray>);
+
                 return (
                   <div key={level} className="mb-4">
                     <div className="flex items-center justify-between text-xs font-semibold text-gray-700 mb-2 pb-1 border-b border-gray-200">
@@ -103,26 +148,81 @@ export function PropertiesPanel({ isSidebarExpanded, placedSpaces = [] }: Proper
                         {levelTotal.toLocaleString()} sf
                       </span>
                     </div>
+
+                    {/* Types within this level */}
                     <div className="space-y-1">
-                      {spacesArray.map((space: typeof placedSpaces[0]) => (
-                        <div key={space.instanceId} className="flex items-center gap-2 text-xs">
-                          <div
-                            className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: getSpaceColor(space.type) }}
-                          >
-                            {(() => {
-                              const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
-                              return IconComponent ? <IconComponent className="w-3 h-3 text-white" /> : null;
-                            })()}
+                      {Object.entries(spacesByType).map(([type, typeSpaces]) => {
+                        const sectionId = `level-${level}-type-${type}`;
+                        const isExpanded = expandedSections.has(sectionId);
+                        const typeTotal = typeSpaces.reduce((sum: number, space: typeof spacesArray[0]) => sum + (space.width * space.depth), 0);
+                        const typeLabel = SPACE_TYPE_COLORS[type as keyof typeof SPACE_TYPE_COLORS]?.label || type;
+
+                        return (
+                          <div key={type} className="rounded border border-gray-200">
+                            {/* Type Header */}
+                            <button
+                              onClick={() => toggleSection(sectionId)}
+                              className="w-full px-2 py-1.5 flex items-center justify-between hover:bg-gray-50 transition-colors rounded text-left"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                {isExpanded ? (
+                                  <ChevronDown className="w-3 h-3 text-gray-500" />
+                                ) : (
+                                  <ChevronRight className="w-3 h-3 text-gray-500" />
+                                )}
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: getSpaceColor(type) }}
+                                />
+                                <span className="text-xs font-medium text-gray-700 capitalize">
+                                  {typeLabel}
+                                </span>
+                                <span className="text-[10px] text-gray-500">
+                                  ({typeSpaces.length})
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-semibold text-gray-600">
+                                {typeTotal.toLocaleString()} sf
+                              </span>
+                            </button>
+
+                            {/* Type Spaces */}
+                            <AnimatePresence>
+                              {isExpanded && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="px-2 pb-1.5 space-y-1">
+                                    {typeSpaces.map((space: typeof spacesArray[0]) => (
+                                      <div key={space.instanceId} className="flex items-center gap-2 text-xs pl-5">
+                                        <div
+                                          className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                                          style={{ backgroundColor: getSpaceColor(space.type) }}
+                                        >
+                                          {(() => {
+                                            const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
+                                            return IconComponent ? <IconComponent className="w-2.5 h-2.5 text-white" /> : null;
+                                          })()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-gray-900 truncate text-[11px]">{space.name}</p>
+                                        </div>
+                                        <span className="text-gray-600 text-[10px]">
+                                          {(space.width * space.depth).toLocaleString()} sf
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-gray-900 truncate font-medium">{space.name}</p>
-                          </div>
-                          <span className="text-gray-600 text-[10px]">
-                            {(space.width * space.depth).toLocaleString()} sf
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );

@@ -1,4 +1,4 @@
-import { RotateCw, Trash2, Maximize2, Move } from 'lucide-react';
+import { RotateCw, Trash2, Maximize2, Move, ChevronsUp, Layers } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface SpaceControlsProps {
@@ -6,20 +6,23 @@ interface SpaceControlsProps {
   onDelete: () => void;
   onResize: () => void;
   onMove: () => void;
+  onChangeHeight: () => void;
+  onChangeLevel: () => void;
   isSelected?: boolean;
   isClosing?: boolean;
 }
 
-export function SpaceControls({ onRotate, onDelete, onResize, onMove, isSelected = false, isClosing = false }: SpaceControlsProps) {
-  const radius = 40; // Distance from center
-  const buttonSize = 36; // Size of each button
+export function SpaceControls({ onRotate, onDelete, onResize, onMove, onChangeHeight, onChangeLevel, isSelected = false, isClosing = false }: SpaceControlsProps) {
+  const radius = 45; // Distance from center
+  const buttonSize = 34; // Size of each button
 
-  // Calculate positions for 4 buttons in a circle (cardinal directions)
+  // Calculate positions for 5 buttons in a circle (72° apart)
   const positions = [
     { angle: -90, handler: onRotate, icon: RotateCw, color: 'blue', title: 'Rotate 90°' },    // Top
-    { angle: 0, handler: onMove, icon: Move, color: isSelected ? 'blue' : 'purple', title: isSelected ? 'Remove from Group (Shift+Click to add more)' : 'Add to Group Move (Shift+Click for more)' },  // Right
-    { angle: 90, handler: onResize, icon: Maximize2, color: 'green', title: 'Resize' },       // Bottom
-    { angle: 180, handler: onDelete, icon: Trash2, color: 'red', title: 'Delete' },           // Left
+    { angle: -18, handler: onMove, icon: Move, color: isSelected ? 'blue' : 'purple', title: isSelected ? 'Remove from Group (Shift+Click to add more)' : 'Add to Group Move (Shift+Click for more)' },  // Top-right (72° from top)
+    { angle: 54, handler: onResize, icon: Maximize2, color: 'green', title: 'Resize' },       // Bottom-right (72° from move)
+    { angle: 126, handler: onChangeLevel, icon: Layers, color: 'orange', title: 'Change Level' },  // Bottom-left (72° from resize)
+    { angle: -162, handler: onDelete, icon: Trash2, color: 'red', title: 'Delete' },          // Top-left (72° from level)
   ];
 
   return (
@@ -40,6 +43,10 @@ export function SpaceControls({ onRotate, onDelete, onResize, onMove, isSelected
               return { bg: 'hover:bg-green-100', text: 'group-hover:text-green-600' };
             case 'red':
               return { bg: 'hover:bg-red-100', text: 'group-hover:text-red-600' };
+            case 'cyan':
+              return { bg: 'hover:bg-cyan-100', text: 'group-hover:text-cyan-600' };
+            case 'orange':
+              return { bg: 'hover:bg-orange-100', text: 'group-hover:text-orange-600' };
             default:
               return { bg: 'hover:bg-gray-100', text: 'group-hover:text-gray-600' };
           }

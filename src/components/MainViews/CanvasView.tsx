@@ -4,6 +4,7 @@ import { LibraryPanel } from '../Canvas/LibraryPanel';
 import { ToolsPanel } from '../Canvas/ToolsPanel';
 import { PropertiesPanel } from '../Canvas/PropertiesPanel';
 import { LoadProjectModal } from '../Canvas/LoadProjectModal';
+import type { PanelType } from '../Canvas/PanelDots';
 import type { SpaceInstance } from '../../types';
 import { saveProject, loadProject, type Project, type ProjectSpace } from '../../lib/api';
 
@@ -42,6 +43,9 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
   const [measurePoints, setMeasurePoints] = useState<Array<{ x: number; z: number }>>([]);
   const [measurements, setMeasurements] = useState<Array<{ id: string; point1: { x: number; z: number }; point2: { x: number; z: number } }>>([]);
   const [presentationMode, setPresentationMode] = useState(false);
+  const [activePanel, setActivePanel] = useState<PanelType>('library');
+  const [timeOfDay, setTimeOfDay] = useState(12); // 12 PM (noon)
+  const [monthOfYear, setMonthOfYear] = useState(6); // June
 
   // Save to localStorage whenever placedSpaces changes
   useEffect(() => {
@@ -322,6 +326,8 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onMeasureClick={handleMeasureClick}
         onDeleteMeasurement={handleDeleteMeasurement}
         presentationMode={presentationMode}
+        timeOfDay={timeOfDay}
+        monthOfYear={monthOfYear}
       />
 
       {/* Library Panel */}
@@ -329,6 +335,8 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         isSidebarExpanded={isSidebarExpanded}
         onDragStart={setDraggedSpace}
         onDragEnd={() => setDraggedSpace(null)}
+        activePanel={activePanel}
+        onPanelChange={setActivePanel}
       />
 
       {/* Tools Panel */}
@@ -352,12 +360,20 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onClearAllMeasurements={handleClearAllMeasurements}
         presentationMode={presentationMode}
         onPresentationModeChange={setPresentationMode}
+        activePanel={activePanel}
+        onPanelChange={setActivePanel}
+        timeOfDay={timeOfDay}
+        onTimeOfDayChange={setTimeOfDay}
+        monthOfYear={monthOfYear}
+        onMonthOfYearChange={setMonthOfYear}
       />
 
       {/* Properties Panel */}
       <PropertiesPanel
         isSidebarExpanded={isSidebarExpanded}
         placedSpaces={placedSpaces}
+        activePanel={activePanel}
+        onPanelChange={setActivePanel}
       />
 
       {/* Load Project Modal */}

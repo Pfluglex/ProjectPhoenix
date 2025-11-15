@@ -131,6 +131,78 @@ interface Canvas3DProps {
   onMeasureClick?: (x: number, z: number) => void;
   onDeleteMeasurement?: (id: string) => void;
   presentationMode?: boolean;
+  timeOfDay?: number; // 0-24 hours
+  monthOfYear?: number; // 1-12 months
+}
+
+// Calculate sun position using proper solar position algorithm
+// Based on NOAA solar calculator methodology
+function calculateSunPosition(timeOfDay: number, monthOfYear: number, latitude: number = 32) {
+  // Convert latitude to radians
+  const latRad = latitude * (Math.PI / 180);
+
+  // Approximate day of year (simplified - assumes 15th of each month)
+  const dayOfYear = (monthOfYear - 1) * 30.5 + 15;
+
+  // Calculate solar declination (sun's angle relative to equator)
+  // δ = -23.45° × cos[360/365 × (d + 10)]
+  const declinationDeg = -23.45 * Math.cos((360 / 365) * (dayOfYear + 10) * (Math.PI / 180));
+  const declinationRad = declinationDeg * (Math.PI / 180);
+
+  // Calculate hour angle (sun's position relative to solar noon)
+  // Solar noon is at 12:00, each hour = 15°
+  const hourAngleDeg = (timeOfDay - 12) * 15;
+  const hourAngleRad = hourAngleDeg * (Math.PI / 180);
+
+  // Calculate solar elevation (altitude) angle
+  // elevation = arcsin[sin(lat) × sin(decl) + cos(lat) × cos(decl) × cos(hour_angle)]
+  const elevationRad = Math.asin(
+    Math.sin(latRad) * Math.sin(declinationRad) +
+    Math.cos(latRad) * Math.cos(declinationRad) * Math.cos(hourAngleRad)
+  );
+  const elevationDeg = elevationRad * (180 / Math.PI);
+
+  // Calculate solar azimuth angle (measured clockwise from north)
+  // azimuth = arcsin[-cos(decl) × sin(hour_angle) / cos(elevation)]
+  let azimuthRad = Math.asin(
+    -Math.cos(declinationRad) * Math.sin(hourAngleRad) / Math.cos(elevationRad)
+  );
+
+  // Quadrant correction for azimuth
+  const sinDec = Math.sin(declinationRad);
+  const sinElev = Math.sin(elevationRad);
+  const sinLat = Math.sin(latRad);
+
+  if (sinDec - sinElev * sinLat >= 0) {
+    if (Math.sin(azimuthRad) < 0) {
+      azimuthRad += 2 * Math.PI;
+    }
+  } else {
+    azimuthRad = Math.PI - azimuthRad;
+  }
+
+  const azimuthDeg = azimuthRad * (180 / Math.PI);
+
+  // Convert to 3D position (spherical to Cartesian)
+  const distance = 200;
+
+  // Azimuth: 0° = North, 90° = East, 180° = South, 270° = West
+  // In our coordinate system: +Z = North, +X = East
+  const azimuthFor3D = (90 - azimuthDeg) * (Math.PI / 180); // Convert to standard math angle
+
+  const x = distance * Math.cos(elevationRad) * Math.cos(azimuthFor3D);
+  const y = distance * Math.sin(elevationRad);
+  const z = distance * Math.cos(elevationRad) * Math.sin(azimuthFor3D);
+
+  // Calculate intensity based on elevation (0 at horizon, max at zenith)
+  const intensity = Math.max(0.1, Math.sin(elevationRad) * 1.5);
+
+  return {
+    position: [x, y, z] as [number, number, number],
+    intensity,
+    elevation: elevationDeg,
+    azimuth: azimuthDeg
+  };
 }
 
 export function Canvas3D({
@@ -151,7 +223,9 @@ export function Canvas3D({
   measurements = [],
   onMeasureClick,
   onDeleteMeasurement,
-  presentationMode = false
+  presentationMode = false,
+  timeOfDay = 12,
+  monthOfYear = 6
 }: Canvas3DProps) {
   const { componentThemes } = useTheme();
   componentThemes.canvasControls.light;
@@ -163,6 +237,9 @@ export function Canvas3D({
 
   // Calculate current level Y position (each level is 15 feet)
   const gridY = (currentLevel - 1) * 15;
+
+  // Calculate sun position based on time and season
+  const sunPosition = calculateSunPosition(timeOfDay, monthOfYear);
 
   // Calculate camera position based on angle
   const getCameraPosition = (angle: 45 | 90): [number, number, number] => {
@@ -282,22 +359,37 @@ export function Canvas3D({
         )}
 
         {/* Lighting */}
-        <ambientLight intensity={1.2} />
-        <directionalLight
-          position={[50, 100, 50]}
-          intensity={1.5}
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-          shadow-camera-far={500}
-          shadow-camera-left={-200}
-          shadow-camera-right={200}
-          shadow-camera-top={200}
-          shadow-camera-bottom={-200}
-          shadow-bias={-0.0001}
-        />
-        <directionalLight position={[-50, 50, -50]} intensity={0.8} />
-        <hemisphereLight args={['#ffffff', '#666666', 0.6]} />
+        {presentationMode ? (
+          // Presentation mode: Dynamic sun with realistic shadows
+          <>
+            <ambientLight intensity={0.4} />
+            {/* Main sun light - controlled by time of day and season */}
+            <directionalLight
+              position={sunPosition.position}
+              intensity={sunPosition.intensity}
+              castShadow
+              shadow-mapSize-width={2048}
+              shadow-mapSize-height={2048}
+              shadow-camera-far={500}
+              shadow-camera-left={-200}
+              shadow-camera-right={200}
+              shadow-camera-top={200}
+              shadow-camera-bottom={-200}
+              shadow-bias={-0.0001}
+            />
+            {/* Fill light - softer, opposite side */}
+            <directionalLight position={[-sunPosition.position[0] * 0.3, sunPosition.position[1] * 0.5, -sunPosition.position[2] * 0.3]} intensity={0.3} />
+            <hemisphereLight args={['#87CEEB', '#68574D', 0.5]} />
+          </>
+        ) : (
+          // Normal mode: Soft global illumination with subtle directional light
+          <>
+            <ambientLight intensity={0.8} />
+            <directionalLight position={[50, 80, 50]} intensity={0.6} />
+            <directionalLight position={[-30, 40, -30]} intensity={0.3} />
+            <hemisphereLight args={['#ffffff', '#999999', 0.6]} />
+          </>
+        )}
 
         {/* Grid or Ground Plane based on presentation mode */}
         {presentationMode ? (

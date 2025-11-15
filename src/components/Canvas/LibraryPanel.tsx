@@ -4,14 +4,17 @@ import { Search, ChevronDown, ChevronRight } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { listSpaces, type SpaceDefinition } from '../../lib/api';
 import { useTheme, getSpaceColor, SPACE_TYPE_COLORS } from '../System/ThemeManager';
+import { PanelDots, type PanelType } from './PanelDots';
 
 interface LibraryPanelProps {
   isSidebarExpanded: boolean;
   onDragStart?: (space: any) => void;
   onDragEnd?: () => void;
+  activePanel: PanelType;
+  onPanelChange: (panel: PanelType) => void;
 }
 
-export function LibraryPanel({ isSidebarExpanded, onDragStart, onDragEnd }: LibraryPanelProps) {
+export function LibraryPanel({ isSidebarExpanded, onDragStart, onDragEnd, activePanel, onPanelChange }: LibraryPanelProps) {
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasPalette.light;
   const [spaces, setSpaces] = useState<SpaceDefinition[]>([]);
@@ -24,6 +27,9 @@ export function LibraryPanel({ isSidebarExpanded, onDragStart, onDragEnd }: Libr
   const leftOffset = isSidebarExpanded
     ? 'calc(280px + 2rem + 1rem)'
     : 'calc(80px + 2rem + 1rem)';
+
+  // Determine if this panel is active
+  const isActive = activePanel === 'library';
 
   useEffect(() => {
     const loadSpacesFromDB = async () => {
@@ -71,7 +77,7 @@ export function LibraryPanel({ isSidebarExpanded, onDragStart, onDragEnd }: Libr
   if (loading) {
     return (
       <motion.div
-        className={`absolute top-4 w-80 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} border ${theme.container.border} p-4`}
+        className={`absolute top-4 w-72 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} border ${theme.container.border} p-4`}
         style={{ left: leftOffset }}
         initial={false}
         animate={{ left: leftOffset }}
@@ -84,19 +90,34 @@ export function LibraryPanel({ isSidebarExpanded, onDragStart, onDragEnd }: Libr
 
   return (
     <motion.div
-      className={`absolute top-4 w-80 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
+      className={`absolute top-4 w-72 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} flex flex-col`}
       style={{
-        height: 'calc(100vh - 2rem)'
+        height: 'calc(100vh - 2rem)',
+        zIndex: isActive ? 20 : 10,
+        pointerEvents: isActive ? 'auto' : 'none',
+        borderWidth: '2px',
+        borderStyle: 'solid',
+        borderColor: 'rgba(59, 130, 246, 0.2)' // Blue with 20% opacity
       }}
       initial={false}
-      animate={{ left: leftOffset }}
+      animate={{
+        left: leftOffset,
+        opacity: isActive ? 1 : 0,
+        scale: isActive ? 1 : 0.95
+      }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
       {/* Header */}
       <div className="flex-shrink-0">
-        <div className="border-b border-gray-200">
-          <div className="py-3 px-4">
+        <div
+          className="border-b border-gray-200"
+          style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.05)' // Blue with 5% opacity
+          }}
+        >
+          <div className="py-3 px-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-800">Library</h2>
+            <PanelDots activePanel={activePanel} onPanelChange={onPanelChange} />
           </div>
         </div>
 

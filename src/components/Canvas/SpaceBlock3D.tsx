@@ -66,6 +66,8 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
   const [isResizing, setIsResizing] = useState(false);
   const [editWidth, setEditWidth] = useState<string>(space.width.toString());
   const [editDepth, setEditDepth] = useState<string>(space.depth.toString());
+  const [editHeight, setEditHeight] = useState<string>(space.height.toString());
+  const [showLevelDropdown, setShowLevelDropdown] = useState(false);
   const { camera, gl } = useThree();
   // Drag plane at the space's Y level
   const planeRef = useRef(new Plane(new Vector3(0, 1, 0), -space.position.y));
@@ -338,6 +340,7 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
     setShowControls(false);
     setEditWidth(space.width.toString());
     setEditDepth(space.depth.toString());
+    setEditHeight(space.height.toString());
 
     // Notify parent to disable panning
     if (onDragStart) {
@@ -345,19 +348,41 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
     }
   };
 
+  const handleChangeHeight = () => {
+    // This is now integrated into resize modal
+    handleResize();
+  };
+
+  const handleChangeLevel = () => {
+    setShowLevelDropdown(true);
+    setShowControls(false);
+  };
+
+  const handleSelectLevel = (level: number) => {
+    if (onMove) {
+      // Calculate new Y position based on level (each level is 15 feet apart)
+      const newY = (level - 1) * 15;
+      onMove(targetPosition[0], newY, targetPosition[2]);
+    }
+    setShowLevelDropdown(false);
+  };
+
   const handleApplyResize = () => {
     const newWidth = parseFloat(editWidth);
     const newDepth = parseFloat(editDepth);
+    const newHeight = parseFloat(editHeight);
 
-    // Only apply if both values are valid numbers and at least the snap interval
-    if (!isNaN(newWidth) && !isNaN(newDepth) && newWidth >= snapInterval && newDepth >= snapInterval && onTransform) {
+    // Only apply if all values are valid numbers
+    if (!isNaN(newWidth) && !isNaN(newDepth) && !isNaN(newHeight) &&
+        newWidth >= snapInterval && newDepth >= snapInterval && newHeight > 0 && onTransform) {
       const scaleX = newWidth / space.width;
       const scaleZ = newDepth / space.depth;
+      const scaleY = newHeight / space.height;
 
       onTransform(
         { x: targetPosition[0], y: space.position.y, z: targetPosition[2] },
         space.rotation || 0,
-        { x: scaleX, y: 1, z: scaleZ }
+        { x: scaleX, y: scaleY, z: scaleZ }
       );
     }
 
@@ -465,6 +490,8 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
               onDelete={handleDelete}
               onResize={handleResize}
               onMove={handleMove}
+              onChangeHeight={handleChangeHeight}
+              onChangeLevel={handleChangeLevel}
               isSelected={isSelected}
               isClosing={!showControls && controlsHovered}
             />
@@ -620,6 +647,39 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
                 </div>
               </div>
 
+              {/* Height Input */}
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Height</label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      const current = parseFloat(editHeight) || 0;
+                      setEditHeight(Math.max(snapInterval, current - snapInterval).toString());
+                    }}
+                    className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-bold"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    value={editHeight}
+                    onChange={(e) => setEditHeight(e.target.value)}
+                    step={snapInterval}
+                    min={snapInterval}
+                    className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                  />
+                  <button
+                    onClick={() => {
+                      const current = parseFloat(editHeight) || 0;
+                      setEditHeight((current + snapInterval).toString());
+                    }}
+                    className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-bold"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
               {/* Buttons */}
               <div className="flex gap-2 pt-2">
                 <button
@@ -641,6 +701,42 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
                 </button>
               </div>
             </div>
+          </div>
+        </Html>
+      )}
+
+      {/* Level Dropdown */}
+      {showLevelDropdown && (
+        <Html
+          position={[0, height + 1, 0]}
+          center
+          sprite
+          zIndexRange={[100, 100]}
+          style={{ pointerEvents: 'auto' }}
+        >
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 p-3 min-w-[140px]">
+            <div className="text-xs font-semibold text-gray-700 mb-2 px-1">Select Level</div>
+            <div className="space-y-1.5">
+              {[1, 2, 3, 4].map((level) => (
+                <button
+                  key={level}
+                  onClick={() => handleSelectLevel(level)}
+                  className={`w-full px-3 py-2 rounded-xl text-sm font-medium transition-colors text-left ${
+                    space.level === level
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Level {level}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowLevelDropdown(false)}
+              className="w-full mt-2 px-3 py-1.5 bg-gray-500 text-white rounded-xl hover:bg-gray-600 text-sm font-medium"
+            >
+              Cancel
+            </button>
           </div>
         </Html>
       )}

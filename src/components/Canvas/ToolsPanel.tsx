@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { Ruler } from 'lucide-react';
+import { Ruler, Sun, Calendar } from 'lucide-react';
 import { useTheme } from '../System/ThemeManager';
+import { PanelDots, type PanelType } from './PanelDots';
 
 interface ToolsPanelProps {
   isSidebarExpanded: boolean;
@@ -22,6 +23,12 @@ interface ToolsPanelProps {
   onClearAllMeasurements?: () => void;
   presentationMode?: boolean;
   onPresentationModeChange?: (enabled: boolean) => void;
+  activePanel: PanelType;
+  onPanelChange: (panel: PanelType) => void;
+  timeOfDay?: number; // 0-24 hours
+  onTimeOfDayChange?: (hour: number) => void;
+  monthOfYear?: number; // 1-12 months
+  onMonthOfYearChange?: (month: number) => void;
 }
 
 export function ToolsPanel({
@@ -44,26 +51,64 @@ export function ToolsPanel({
   onClearAllMeasurements,
   presentationMode = false,
   onPresentationModeChange,
+  activePanel,
+  onPanelChange,
+  timeOfDay = 12,
+  onTimeOfDayChange,
+  monthOfYear = 6,
+  onMonthOfYearChange,
 }: ToolsPanelProps) {
   const { componentThemes, colors } = useTheme();
   const theme = componentThemes.canvasPalette.light;
 
-  // Calculate left offset (positioned next to Library panel)
+  // Helper to format hour display (12-hour format with AM/PM)
+  const formatHour = (hour: number) => {
+    if (hour === 0) return '12 AM';
+    if (hour === 12) return '12 PM';
+    if (hour < 12) return `${hour} AM`;
+    return `${hour - 12} PM`;
+  };
+
+  // Month names
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // Calculate left offset (same position as Library - they stack)
   const leftOffset = isSidebarExpanded
-    ? 'calc(280px + 2rem + 1rem + 320px + 1rem)' // sidebar + library panel + gap
-    : 'calc(80px + 2rem + 1rem + 320px + 1rem)';
+    ? 'calc(280px + 2rem + 1rem)' // sidebar + gap (same as library)
+    : 'calc(80px + 2rem + 1rem)';
+
+  // Determine if this panel is active
+  const isActive = activePanel === 'tools';
 
   return (
     <motion.div
-      className={`absolute top-4 w-72 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
+      className={`absolute top-4 w-72 ${theme.container.bg} ${theme.container.backdropBlur} rounded-2xl ${theme.container.shadow} flex flex-col`}
+      style={{
+        height: 'calc(100vh - 2rem)',
+        zIndex: isActive ? 20 : 10,
+        pointerEvents: isActive ? 'auto' : 'none',
+        borderWidth: '2px',
+        borderStyle: 'solid',
+        borderColor: 'rgba(245, 158, 11, 0.2)' // Amber with 20% opacity
+      }}
       initial={false}
-      animate={{ left: leftOffset }}
+      animate={{
+        left: leftOffset,
+        opacity: isActive ? 1 : 0,
+        scale: isActive ? 1 : 0.95
+      }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
       {/* Header */}
-      <div className="flex-shrink-0 border-b border-gray-200">
-        <div className="py-3 px-4">
+      <div
+        className="flex-shrink-0 border-b border-gray-200"
+        style={{
+          backgroundColor: 'rgba(245, 158, 11, 0.05)' // Amber with 5% opacity
+        }}
+      >
+        <div className="py-3 px-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-800">Tools</h2>
+          <PanelDots activePanel={activePanel} onPanelChange={onPanelChange} />
         </div>
       </div>
 
@@ -122,6 +167,66 @@ export function ToolsPanel({
                 }`}
               />
             </button>
+          </div>
+
+          {/* Time of Day Slider */}
+          <div className="pt-1">
+            <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+              <div className="flex items-center gap-1.5">
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                <span>Time of Day</span>
+              </div>
+              <span className="text-gray-500 text-[10px]">{formatHour(timeOfDay)}</span>
+            </label>
+            <input
+              type="range"
+              min="6"
+              max="20"
+              step="0.5"
+              value={timeOfDay}
+              onChange={(e) => onTimeOfDayChange?.(Number(e.target.value))}
+              className="w-full h-1.5 bg-gradient-to-r from-blue-300 via-amber-300 to-orange-400 rounded-lg appearance-none cursor-pointer"
+              style={{
+                accentColor: '#F59E0B'
+              }}
+            />
+            <div className="flex justify-between text-[9px] text-gray-400 mt-0.5 px-0.5">
+              <span>6 AM</span>
+              <span>10 AM</span>
+              <span>2 PM</span>
+              <span>6 PM</span>
+              <span>8 PM</span>
+            </div>
+          </div>
+
+          {/* Month of Year Slider */}
+          <div className="pt-1">
+            <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                <span>Month of Year</span>
+              </div>
+              <span className="text-gray-500 text-[10px]">{monthNames[monthOfYear - 1]}</span>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="12"
+              step="1"
+              value={monthOfYear}
+              onChange={(e) => onMonthOfYearChange?.(Number(e.target.value))}
+              className="w-full h-1.5 bg-gradient-to-r from-blue-200 via-amber-100 to-blue-200 rounded-lg appearance-none cursor-pointer"
+              style={{
+                accentColor: '#3B82F6'
+              }}
+            />
+            <div className="flex justify-between text-[9px] text-gray-400 mt-0.5 px-0.5">
+              <span>Jan</span>
+              <span>Apr</span>
+              <span>Jul</span>
+              <span>Oct</span>
+              <span>Dec</span>
+            </div>
           </div>
         </div>
 
