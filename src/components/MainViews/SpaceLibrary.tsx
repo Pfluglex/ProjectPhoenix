@@ -1,217 +1,296 @@
 import { useState, useEffect } from 'react';
-import { loadSpacesFromCSV, getSpacesSummary } from '../../lib/csvParser';
+import { listSpaces, deleteSpace, createSpace, updateSpace } from '../../lib/api';
 import type { SpaceDefinition } from '../../types';
-import { Search, X } from 'lucide-react';
+import { Search, X, Edit2, Trash2, Plus } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
+import { getSpaceColor, SPACE_TYPE_COLORS } from '../System/ThemeManager';
+import { AddSpaceModal } from '../SpaceLibrary/AddSpaceModal';
+import { EditSpaceModal } from '../SpaceLibrary/EditSpaceModal';
 
 export function SpaceLibrary() {
   const [spaces, setSpaces] = useState<SpaceDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<string>('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedSpace, setSelectedSpace] = useState<SpaceDefinition | null>(null);
 
   useEffect(() => {
-    loadSpacesFromCSV('/data/cte-spaces.csv').then((loadedSpaces) => {
-      setSpaces(loadedSpaces);
-      setLoading(false);
-    });
+    loadSpacesFromDB();
   }, []);
+
+  const loadSpacesFromDB = async () => {
+    try {
+      const result = await listSpaces();
+      if (result.success && result.spaces) {
+        setSpaces(result.spaces);
+      }
+    } catch (error) {
+      console.error('Error loading spaces:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center bg-gray-50">
         <p className="text-gray-600">Loading spaces...</p>
       </div>
     );
   }
 
-  const summary = getSpacesSummary(spaces);
-
-  // Get unique categories and types
-  const categories = ['all', ...Array.from(new Set(spaces.map(s => s.category)))];
-  const types = ['all', ...Array.from(new Set(spaces.map(s => s.type)))];
-
   // Filter spaces
   const filteredSpaces = spaces.filter(space => {
     const matchesSearch = space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          space.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || space.category === selectedCategory;
-    const matchesType = selectedType === 'all' || space.type === selectedType;
 
-    return matchesSearch && matchesCategory && matchesType;
+    return matchesSearch;
   });
 
+  // Group by type
+  const groupedByType = filteredSpaces.reduce((acc, space) => {
+    if (!acc[space.type]) {
+      acc[space.type] = [];
+    }
+    acc[space.type].push(space);
+    return acc;
+  }, {} as Record<string, SpaceDefinition[]>);
+
+  // Calculate totals
+  const totalSpaces = spaces.length;
+  const totalSF = spaces.reduce((sum, space) => sum + (space.width * space.depth), 0);
+
   // Reset filters
-  const hasActiveFilters = searchQuery !== '' || selectedCategory !== 'all' || selectedType !== 'all';
+  const hasActiveFilters = searchQuery !== '';
   const resetFilters = () => {
     setSearchQuery('');
-    setSelectedCategory('all');
-    setSelectedType('all');
+  };
+
+  const handleEditSpace = (space: SpaceDefinition) => {
+    setSelectedSpace(space);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (spaceId: string, updates: Partial<SpaceDefinition>) => {
+    try {
+      const result = await updateSpace(spaceId, updates);
+      if (result.success) {
+        // Reload spaces
+        setLoading(true);
+        await loadSpacesFromDB();
+        alert(`Space updated successfully!`);
+      } else {
+        alert(`Failed to update space: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error updating space:', error);
+      alert('Error updating space. Please try again.');
+    }
+  };
+
+  const handleDeleteSpace = async (space: SpaceDefinition) => {
+    if (!window.confirm(`Are you sure you want to delete "${space.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const result = await deleteSpace(space.id);
+      if (result.success) {
+        // Reload spaces
+        setLoading(true);
+        await loadSpacesFromDB();
+        alert(`Space "${space.name}" deleted successfully!`);
+      } else {
+        alert(`Failed to delete space: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting space:', error);
+      alert('Error deleting space. Please try again.');
+    }
+  };
+
+  const handleAddSpace = async (spaceData: Omit<SpaceDefinition, 'id'>) => {
+    try {
+      // Generate ID from type and timestamp
+      const id = `${spaceData.type.substring(0, 4)}-${Date.now().toString().slice(-6)}`;
+
+      const result = await createSpace({ ...spaceData, id });
+      if (result.success) {
+        // Reload spaces
+        setLoading(true);
+        await loadSpacesFromDB();
+        alert(`Space "${spaceData.name}" added successfully!`);
+      } else {
+        alert(`Failed to add space: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error adding space:', error);
+      alert('Error adding space. Please try again.');
+    }
   };
 
   return (
     <div className="w-full h-full bg-gray-50 p-8 overflow-auto">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">Space Library</h1>
+        {/* Header with Add Button */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Space Library</h1>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Add Space
+          </button>
+        </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
             <p className="text-sm text-gray-500 mb-2">Total Spaces</p>
-            <p className="text-3xl font-bold text-gray-900">{summary.totalSpaces}</p>
+            <p className="text-3xl font-bold text-gray-900">{totalSpaces}</p>
           </div>
           <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
             <p className="text-sm text-gray-500 mb-2">Total SF</p>
-            <p className="text-3xl font-bold text-gray-900">{summary.totalSF.toLocaleString()}</p>
-          </div>
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-            <p className="text-sm text-gray-500 mb-2">Filtered Results</p>
-            <p className="text-3xl font-bold text-gray-900">{filteredSpaces.length}</p>
+            <p className="text-3xl font-bold text-gray-900">{totalSF.toLocaleString()}</p>
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Search */}
         <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Filters</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Search</h2>
             {hasActiveFilters && (
               <button
                 onClick={resetFilters}
                 className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <X className="w-4 h-4" />
-                Clear All
+                Clear
               </button>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name or ID..."
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Category Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 capitalize"
-              >
-                {categories.map(cat => (
-                  <option key={cat} value={cat} className="capitalize">
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Type Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type
-              </label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 capitalize"
-              >
-                {types.map(type => (
-                  <option key={type} value={type} className="capitalize">
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or ID..."
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
         </div>
 
-        {/* Space List */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4">
-            Spaces ({filteredSpaces.length})
-          </h2>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dimensions
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    SF
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredSpaces.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                      No spaces found matching your filters
-                    </td>
-                  </tr>
-                ) : (
-                  filteredSpaces.map((space) => (
-                  <tr key={space.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded"
-                          style={{ backgroundColor: space.color }}
-                        />
-                        <span className="text-sm font-medium text-gray-900">{space.name}</span>
+        {/* Spaces Grouped by Type */}
+        {filteredSpaces.length === 0 ? (
+          <div className="bg-white rounded-lg p-12 shadow-sm border border-gray-200 text-center">
+            <p className="text-lg text-gray-500 mb-2">No spaces found</p>
+            <p className="text-sm text-gray-400">Try adjusting your filters</p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {Object.entries(groupedByType).map(([type, typeSpaces]) => (
+              <div key={type}>
+                {/* Type Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: getSpaceColor(type as any) }}
+                  />
+                  <h2 className="text-xl font-semibold text-gray-800 capitalize">
+                    {SPACE_TYPE_COLORS[type as keyof typeof SPACE_TYPE_COLORS]?.label || type}
+                    <span className="text-gray-500 font-normal ml-2">({typeSpaces.length})</span>
+                  </h2>
+                </div>
+
+                {/* Space Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {typeSpaces.map((space) => {
+                    const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
+                    return (
+                      <div
+                        key={space.id}
+                        className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow relative"
+                      >
+                        {/* Action Buttons */}
+                        <div className="absolute top-3 right-3 flex gap-1">
+                          <button
+                            onClick={() => handleEditSpace(space)}
+                            className="p-1.5 rounded-md hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Edit space"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSpace(space)}
+                            className="p-1.5 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete space"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Icon and Name */}
+                        <div className="flex items-start gap-3 mb-3 pr-16">
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: getSpaceColor(space.type) }}
+                          >
+                            {IconComponent && <IconComponent className="w-5 h-5 text-white" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-gray-900 truncate">
+                              {space.name}
+                            </h3>
+                            <p className="text-xs text-gray-500 capitalize">{SPACE_TYPE_COLORS[space.type]?.label}</p>
+                          </div>
+                        </div>
+
+                        {/* Details */}
+                        <div className="space-y-1 text-xs text-gray-600">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Dimensions:</span>
+                            <span className="font-medium">{space.width}' × {space.depth}'</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Height:</span>
+                            <span className="font-medium">{space.height}'</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Area:</span>
+                            <span className="font-medium">{(space.width * space.depth).toLocaleString()} SF</span>
+                          </div>
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm text-gray-600 capitalize">{space.category}</span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm text-gray-600">
-                        {space.width}' × {space.depth}' × {space.height}'
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm text-gray-600">
-                        {(space.width * space.depth).toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 capitalize">
-                        {space.type}
-                      </span>
-                    </td>
-                  </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Add Space Modal */}
+      <AddSpaceModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleAddSpace}
+      />
+
+      {/* Edit Space Modal */}
+      <EditSpaceModal
+        isOpen={showEditModal}
+        space={selectedSpace}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedSpace(null);
+        }}
+        onSave={handleSaveEdit}
+      />
     </div>
   );
 }

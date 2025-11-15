@@ -37,9 +37,8 @@ export function parseSpacesCSV(csvText: string): SpaceDefinition[] {
     // Skip if invalid dimensions
     if (width === 0 || depth === 0) continue;
 
-    // Get category, color, type, and icon from CSV
+    // Get category, type, and icon from CSV
     const category = (row.Cat || 'generic').toLowerCase();
-    const color = row.color || '#9CA3AF';
     const type = (row.type || 'generic') as 'program' | 'circulation' | 'support' | 'generic';
     const icon = row.icon || 'Square'; // Default icon
 
@@ -50,7 +49,6 @@ export function parseSpacesCSV(csvText: string): SpaceDefinition[] {
       width,
       depth,
       height,
-      color,
       type,
       icon
     });
@@ -93,7 +91,6 @@ export function createSpaceInstance(
     depth: definition.depth,
     height: definition.height,
     rotation: 0,
-    color: definition.color,
     type: definition.type,
     icon: definition.icon
   };
@@ -116,4 +113,136 @@ export function getSpacesSummary(spaces: SpaceDefinition[]) {
     totalSF,
     categories: byCategory
   };
+}
+
+/**
+ * Project type for CSV storage
+ */
+export interface Project {
+  id: string;
+  name: string;
+  timestamp: string;
+  spaceCount: number;
+}
+
+/**
+ * Project Space type for CSV storage
+ */
+export interface ProjectSpace {
+  project_id: string;
+  space_instance_id: string;
+  template_id: string;
+  id: string;
+  name: string;
+  category: string;
+  width: number;
+  depth: number;
+  height: number;
+  color: string;
+  icon: string;
+  position_x: number;
+  position_y: number;
+  position_z: number;
+  rotation: number;
+}
+
+/**
+ * Load projects from CSV file
+ */
+export async function loadProjectsFromCSV(): Promise<Project[]> {
+  try {
+    const response = await fetch('/data/projects.csv');
+    const csvText = await response.text();
+    const lines = csvText.trim().split('\n');
+
+    if (lines.length < 2) return [];
+
+    const projects: Project[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/^"|"$/g, ''));
+      if (!values || values.length < 4) continue;
+
+      projects.push({
+        id: values[0],
+        name: values[1],
+        timestamp: values[2],
+        spaceCount: parseInt(values[3])
+      });
+    }
+
+    return projects;
+  } catch (error) {
+    console.error('Failed to load projects CSV:', error);
+    return [];
+  }
+}
+
+/**
+ * Load project spaces from CSV file
+ */
+export async function loadProjectSpacesFromCSV(): Promise<ProjectSpace[]> {
+  try {
+    const response = await fetch('/data/spaces.csv');
+    const csvText = await response.text();
+    const lines = csvText.trim().split('\n');
+
+    if (lines.length < 2) return [];
+
+    const spaces: ProjectSpace[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/^"|"$/g, ''));
+      if (!values || values.length < 15) continue;
+
+      spaces.push({
+        project_id: values[0],
+        space_instance_id: values[1],
+        template_id: values[2],
+        id: values[3],
+        name: values[4],
+        category: values[5],
+        width: parseFloat(values[6]),
+        depth: parseFloat(values[7]),
+        height: parseFloat(values[8]),
+        color: values[9],
+        icon: values[10],
+        position_x: parseFloat(values[11]),
+        position_y: parseFloat(values[12]),
+        position_z: parseFloat(values[13]),
+        rotation: parseFloat(values[14])
+      });
+    }
+
+    return spaces;
+  } catch (error) {
+    console.error('Failed to load spaces CSV:', error);
+    return [];
+  }
+}
+
+/**
+ * Convert projects array to CSV string
+ */
+export function projectsToCSV(projects: Project[]): string {
+  const header = 'Project ID,Project Name,Timestamp,Space Count';
+  const rows = projects.map(p =>
+    `"${p.id}","${p.name}","${p.timestamp}",${p.spaceCount}`
+  );
+  return [header, ...rows].join('\n');
+}
+
+/**
+ * Convert project spaces array to CSV string
+ */
+export function projectSpacesToCSV(spaces: ProjectSpace[]): string {
+  const header = 'Project ID,Space Instance ID,Template ID,ID,Name,Category,Width,Depth,Height,Color,Icon,Position X,Position Y,Position Z,Rotation';
+  const rows = spaces.map(s =>
+    `"${s.project_id}","${s.space_instance_id}","${s.template_id}","${s.id}","${s.name}","${s.category}",${s.width},${s.depth},${s.height},"${s.color}","${s.icon}",${s.position_x},${s.position_y},${s.position_z},${s.rotation}`
+  );
+  return [header, ...rows].join('\n');
 }

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronDown, ChevronRight, Settings } from 'lucide-react';
-import { loadSpacesFromCSV } from '../../lib/csvParser';
-import type { SpaceDefinition } from '../../types';
-import { useTheme } from '../System/ThemeManager';
+import * as LucideIcons from 'lucide-react';
+import { listSpaces, type SpaceDefinition } from '../../lib/api';
+import { useTheme, getSpaceColor, SPACE_TYPE_COLORS } from '../System/ThemeManager';
 
 interface SpacePaletteProps {
   isSidebarExpanded: boolean;
@@ -15,24 +15,40 @@ interface SpacePaletteProps {
   onSnapIntervalChange?: (interval: number) => void;
   labelMode?: 'text' | 'icon';
   onLabelModeChange?: (mode: 'text' | 'icon') => void;
+  placedSpaces?: any[];
+  onSaveProject?: () => void;
+  onClearCanvas?: () => void;
+  onLoadProject?: (projectId?: string) => void;
 }
 
-export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange }: SpacePaletteProps) {
+export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange, placedSpaces = [], onSaveProject, onClearCanvas, onLoadProject }: SpacePaletteProps) {
   const { componentThemes } = useTheme();
   const theme = componentThemes.canvasPalette.light;
   const [spaces, setSpaces] = useState<SpaceDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(['technology', 'trades', 'band'])
+  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(
+    new Set([]) // Start with all types collapsed
   );
+  const [recentSpaces, setRecentSpaces] = useState<SpaceDefinition[]>([]);
   const [activePanel, setActivePanel] = useState<'library' | 'properties'>('library');
 
   useEffect(() => {
-    loadSpacesFromCSV('/data/cte-spaces.csv').then((loadedSpaces) => {
-      setSpaces(loadedSpaces);
-      setLoading(false);
-    });
+    // Load spaces from database API
+    const loadSpacesFromDB = async () => {
+      try {
+        const result = await listSpaces();
+        if (result.success && result.spaces) {
+          setSpaces(result.spaces);
+        }
+      } catch (error) {
+        console.error('Error loading spaces:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSpacesFromDB();
   }, []);
 
   // Filter spaces by search query
@@ -42,23 +58,23 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
       space.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Group spaces by category
+  // Group spaces by type
   const groupedSpaces = filteredSpaces.reduce((acc, space) => {
-    if (!acc[space.category]) {
-      acc[space.category] = [];
+    if (!acc[space.type]) {
+      acc[space.type] = [];
     }
-    acc[space.category].push(space);
+    acc[space.type].push(space);
     return acc;
   }, {} as Record<string, SpaceDefinition[]>);
 
-  const toggleCategory = (category: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(category)) {
-      newExpanded.delete(category);
+  const toggleType = (type: string) => {
+    const newExpanded = new Set(expandedTypes);
+    if (newExpanded.has(type)) {
+      newExpanded.delete(type);
     } else {
-      newExpanded.add(category);
+      newExpanded.add(type);
     }
-    setExpandedCategories(newExpanded);
+    setExpandedTypes(newExpanded);
   };
 
   // Calculate left offset based on sidebar state
@@ -81,80 +97,135 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
     );
   }
 
-  const panelWidth = 320; // 80 * 4 (w-80)
-  const peekAmount = 60; // How much the back panel shows (in pixels)
-
   return (
     <motion.div
-      className="absolute top-4"
+      className={`absolute top-4 w-80 ${theme.container.bg} ${theme.container.backdropBlur} rounded-lg ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
       style={{
-        height: 'calc(100vh - 2rem)',
-        width: panelWidth + peekAmount
+        height: 'calc(100vh - 2rem)'
       }}
       initial={false}
       animate={{ left: leftOffset }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
-      {/* Library Panel */}
-      <motion.div
-        className={`absolute h-full ${theme.container.bg} ${theme.container.backdropBlur} rounded-lg ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
-        style={{
-          width: panelWidth,
-          zIndex: activePanel === 'library' ? 2 : 1
-        }}
-        animate={{
-          left: activePanel === 'library' ? 0 : peekAmount
-        }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
-      >
-        {/* Header - clickable when underneath */}
-        <div
-          className={`p-4 border-b ${theme.header.divider} flex-shrink-0 ${activePanel === 'properties' ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-          onClick={() => activePanel === 'properties' && setActivePanel('library')}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">Space Library</h2>
-            {activePanel === 'library' && (
-              <button
-                onClick={() => setActivePanel('properties')}
-                className="p-1 hover:bg-gray-200 rounded transition-colors"
-                title="Open Properties"
-              >
-                <Settings className="w-4 h-4 text-gray-600" />
-              </button>
-            )}
-          </div>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search spaces..."
-            className={`w-full pl-10 pr-3 py-2 ${theme.search.bg} border ${theme.search.border} rounded-md focus:outline-none focus:ring-2 ${theme.search.focusRing} text-sm ${theme.search.backdropBlur}`}
-          />
+      {/* Header with Tabs */}
+      <div className="flex-shrink-0">
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActivePanel('library')}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-all relative ${
+              activePanel === 'library'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            Library
+          </button>
+          <button
+            onClick={() => setActivePanel('properties')}
+            className={`flex-1 py-3 px-4 text-sm font-medium transition-all relative ${
+              activePanel === 'properties'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            Properties
+          </button>
         </div>
+
+        {/* Search - only show in Library mode */}
+        {activePanel === 'library' && (
+          <div className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search spaces..."
+                className={`w-full pl-10 pr-3 py-2 ${theme.search.bg} border ${theme.search.border} rounded-md focus:outline-none focus:ring-2 ${theme.search.focusRing} text-sm ${theme.search.backdropBlur}`}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Space List */}
-      <div className="flex-1 overflow-y-auto p-2 min-h-0">
-        {Object.entries(groupedSpaces).length === 0 ? (
-          <div className="p-4 text-center text-gray-500 text-sm">
-            No spaces found
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {Object.entries(groupedSpaces).map(([category, categorySpaces]) => {
-              const isExpanded = expandedCategories.has(category);
+      {/* Library Content */}
+      {activePanel === 'library' && (
+        <>
+          <div className="flex-1 overflow-y-auto p-2 min-h-0">
+            {Object.entries(groupedSpaces).length === 0 ? (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                No spaces found
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {/* Recents Section - Always show 5 slots */}
+                <div className="rounded-lg border border-blue-300 bg-blue-50/30">
+                  <div className="px-2 py-1.5 border-b border-blue-200">
+                    <span className="font-medium text-blue-900 text-sm">
+                      Recent
+                    </span>
+                  </div>
+                  <div className="px-1.5 pb-1.5 pt-1 space-y-0.5">
+                    {Array.from({ length: 5 }).map((_, index) => {
+                      const space = recentSpaces[index];
+                      return space ? (
+                        <motion.div
+                          key={`recent-${space.id}`}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('application/json', JSON.stringify(space));
+                            e.dataTransfer.effectAllowed = 'copy';
+                          }}
+                          className={`p-1.5 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder} bg-white select-none`}
+                        >
+                          <div className="flex items-center gap-2 pointer-events-none">
+                            <div
+                              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: getSpaceColor(space.type) }}
+                            >
+                              {(() => {
+                                const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
+                                return IconComponent ? <IconComponent className="w-3.5 h-3.5 text-white" /> : null;
+                              })()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-900 truncate">
+                                {space.name}
+                              </p>
+                              <p className="text-[10px] text-gray-500">
+                                {space.width}' × {space.depth}' × {space.height}'
+                              </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <div key={`empty-${index}`} className="p-1.5 rounded border border-dashed border-gray-300 bg-gray-50/50">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-gray-200 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="h-3 bg-gray-200 rounded w-3/4 mb-1" />
+                              <div className="h-2 bg-gray-200 rounded w-1/2" />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Type Buckets */}
+                {Object.entries(groupedSpaces).map(([type, typeSpaces]) => {
+              const isExpanded = expandedTypes.has(type);
 
               return (
-                <div key={category} className="rounded-lg border border-gray-300">
-                  {/* Category Header */}
+                <div key={type} className="rounded-lg border border-gray-300">
+                  {/* Type Header */}
                   <button
-                    onClick={() => toggleCategory(category)}
-                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-gray-50 transition-colors rounded-lg"
+                    onClick={() => toggleType(type)}
+                    className="w-full px-2 py-1.5 flex items-center justify-between hover:bg-gray-50 transition-colors rounded-lg"
                   >
                     <div className="flex items-center gap-2">
                       {isExpanded ? (
@@ -163,15 +234,15 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
                         <ChevronRight className="w-4 h-4 text-gray-600" />
                       )}
                       <span className="font-medium text-gray-800 capitalize text-sm">
-                        {category}
+                        {SPACE_TYPE_COLORS[type as keyof typeof SPACE_TYPE_COLORS]?.label || type}
                       </span>
                       <span className="text-xs text-gray-500">
-                        ({categorySpaces.length})
+                        ({typeSpaces.length})
                       </span>
                     </div>
                   </button>
 
-                  {/* Category Spaces */}
+                  {/* Type Spaces */}
                   <AnimatePresence>
                     {isExpanded && (
                       <motion.div
@@ -181,8 +252,8 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="px-2 pb-2 space-y-1">
-                          {categorySpaces.map((space, index) => (
+                        <div className="px-1.5 pb-1.5 space-y-0.5">
+                          {typeSpaces.map((space, index) => (
                             <motion.div
                               key={space.id}
                               initial={{ opacity: 0, x: -10 }}
@@ -192,19 +263,30 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
                               onDragStart={(e) => {
                                 e.dataTransfer.setData('application/json', JSON.stringify(space));
                                 e.dataTransfer.effectAllowed = 'copy';
+
+                                // Add to recents (avoid duplicates, keep max 5)
+                                setRecentSpaces((prev) => {
+                                  const filtered = prev.filter(s => s.id !== space.id);
+                                  return [space, ...filtered].slice(0, 5);
+                                });
                               }}
-                              className={`p-2 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder}`}
+                              className={`p-1.5 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder} select-none`}
                             >
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 pointer-events-none">
                                 <div
-                                  className="w-3 h-3 rounded flex-shrink-0"
-                                  style={{ backgroundColor: space.color }}
-                                />
+                                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: getSpaceColor(space.type) }}
+                                >
+                                  {(() => {
+                                    const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
+                                    return IconComponent ? <IconComponent className="w-3.5 h-3.5 text-white" /> : null;
+                                  })()}
+                                </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                  <p className="text-xs font-medium text-gray-900 truncate">
                                     {space.name}
                                   </p>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-[10px] text-gray-500">
                                     {space.width}' × {space.depth}' × {space.height}'
                                   </p>
                                 </div>
@@ -217,53 +299,97 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
                   </AnimatePresence>
                 </div>
               );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Footer with space count */}
-      <div className={`p-3 border-t ${theme.footer.divider} ${theme.footer.bg} flex-shrink-0`}>
-        <p className="text-xs text-gray-600 text-center">
-          {filteredSpaces.length} space{filteredSpaces.length !== 1 ? 's' : ''} available
-        </p>
-      </div>
-
-      </motion.div>
-
-      {/* Properties Panel */}
-      <motion.div
-        className={`absolute h-full ${theme.container.bg} ${theme.container.backdropBlur} rounded-lg ${theme.container.shadow} border ${theme.container.border} flex flex-col`}
-        style={{
-          width: panelWidth,
-          zIndex: activePanel === 'properties' ? 2 : 1
-        }}
-        animate={{
-          left: activePanel === 'properties' ? 0 : peekAmount
-        }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
-      >
-        {/* Header - clickable when underneath */}
-        <div
-          className={`p-4 border-b ${theme.header.divider} flex-shrink-0 ${activePanel === 'library' ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-          onClick={() => activePanel === 'library' && setActivePanel('properties')}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">Properties</h2>
-            {activePanel === 'properties' && (
-              <button
-                onClick={() => setActivePanel('library')}
-                className="p-1 hover:bg-gray-200 rounded transition-colors"
-                title="Back to Library"
-              >
-                <Search className="w-4 h-4 text-gray-600" />
-              </button>
+                })}
+              </div>
             )}
           </div>
-        </div>
 
-        {/* Properties Content */}
+          {/* Footer with space count */}
+          <div className={`p-3 border-t ${theme.footer.divider} ${theme.footer.bg} flex-shrink-0`}>
+            <p className="text-xs text-gray-600 text-center">
+              {filteredSpaces.length} space{filteredSpaces.length !== 1 ? 's' : ''} available
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* Properties Content */}
+      {activePanel === 'properties' && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* My Build Section */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">My Build</h3>
+
+              {placedSpaces.length === 0 ? (
+                <div className="text-xs text-gray-500 text-center py-4">
+                  No spaces added yet
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2 mb-3">
+                    {placedSpaces.map((space) => (
+                      <div key={space.instanceId} className="flex items-center gap-2 text-xs">
+                        <div
+                          className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: getSpaceColor(space.type) }}
+                        >
+                          {(() => {
+                            const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
+                            return IconComponent ? <IconComponent className="w-3 h-3 text-white" /> : null;
+                          })()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-900 truncate font-medium">{space.name}</p>
+                        </div>
+                        <span className="text-gray-600 text-[10px]">
+                          {(space.width * space.depth).toLocaleString()} sf
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-3 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-800">Total</span>
+                      <span className="text-sm font-bold text-blue-600">
+                        {placedSpaces.reduce((total, space) => total + (space.width * space.depth), 0).toLocaleString()} sf
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Save, Load, and Clear Buttons */}
+            <div className="space-y-2">
+              <button
+                onClick={onSaveProject}
+                disabled={placedSpaces.length === 0}
+                className="w-full bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Save Project
+              </button>
+              <button
+                onClick={() => onLoadProject?.()}
+                className="w-full bg-green-500 text-white px-3 py-2 rounded-lg hover:bg-green-600 text-sm font-medium"
+              >
+                Load Project
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to clear the canvas? This cannot be undone.')) {
+                    onClearCanvas?.();
+                  }
+                }}
+                disabled={placedSpaces.length === 0}
+                className="w-full bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Clear Canvas
+              </button>
+            </div>
+
+            <div className="border-t border-gray-200 pt-4"></div>
+
             {/* Tag Display Toggle */}
             <div>
               <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
@@ -296,43 +422,29 @@ export function SpacePalette({ isSidebarExpanded, canvasInfo, snapInterval = 5, 
               </label>
               <input
                 type="range"
-                min="1"
-                max="30"
+                min="0"
+                max="7"
                 step="1"
-                value={snapInterval}
-                onChange={(e) => onSnapIntervalChange?.(Number(e.target.value))}
+                value={[1, 2.5, 5, 7.5, 10, 15, 20, 30].indexOf(snapInterval)}
+                onChange={(e) => {
+                  const snapValues = [1, 2.5, 5, 7.5, 10, 15, 20, 30];
+                  onSnapIntervalChange?.(snapValues[Number(e.target.value)]);
+                }}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
               />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+              <div className="flex justify-between text-[10px] text-gray-400 mt-1 px-1">
                 <span>1'</span>
+                <span>2.5'</span>
                 <span>5'</span>
+                <span>7.5'</span>
                 <span>10'</span>
+                <span>15'</span>
+                <span>20'</span>
                 <span>30'</span>
               </div>
             </div>
-
-            {/* Canvas Info */}
-            {canvasInfo && (
-              <div>
-                <h3 className="text-xs font-medium text-gray-700 mb-2">Canvas Info</h3>
-                <div className="space-y-1 text-xs text-gray-600">
-                  <div className="flex justify-between">
-                    <span>Position X:</span>
-                    <span>{canvasInfo.position.x.toFixed(1)}'</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Position Y:</span>
-                    <span>{canvasInfo.position.y.toFixed(1)}'</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Zoom:</span>
-                    <span>{(canvasInfo.zoom * 100).toFixed(0)}%</span>
-                  </div>
-                </div>
-              </div>
-            )}
         </div>
-      </motion.div>
+      )}
     </motion.div>
   );
 }

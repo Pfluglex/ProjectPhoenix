@@ -10,7 +10,6 @@ export interface GridPosition {
 
 export interface Space3D {
   id: string;
-  category: string; // technology, trades, band, service, generic
   name: string;
 
   // Grid position (in feet)
@@ -24,8 +23,7 @@ export interface Space3D {
   // Rotation (0, 90, 180, 270)
   rotation: 0 | 90 | 180 | 270;
 
-  color: string;
-  type: 'program' | 'circulation' | 'support' | 'generic';
+  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic';
   icon: string; // Lucide icon name
 }
 
@@ -45,13 +43,11 @@ export interface SpaceCSVRow {
 // Space definition from CSV (template)
 export interface SpaceDefinition {
   id: string; // Template ID (e.g., "tech-001")
-  category: string;
   name: string;
   width: number;
   depth: number;
   height: number;
-  color: string;
-  type: 'program' | 'circulation' | 'support' | 'generic';
+  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic';
   icon: string; // Lucide icon name
 }
 

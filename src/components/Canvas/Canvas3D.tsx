@@ -87,7 +87,15 @@ export function Canvas3D({
         setIsDraggingFromPalette(false);
       }}
     >
-      {/* Controls placeholder - will add later */}
+      {/* Top-right controls */}
+      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-3 z-10">
+        <div className="text-xs font-medium text-gray-700 mb-2">Canvas Controls</div>
+        <div className="space-y-2 text-xs text-gray-600">
+          <div>Left-click: Pan</div>
+          <div>Right-click: Show controls</div>
+          <div>Scroll: Zoom</div>
+        </div>
+      </div>
 
       {/* Three.js Canvas */}
       <Canvas
@@ -194,6 +202,9 @@ export function Canvas3D({
           enableRotate={false} // Disable rotation completely
           enablePan={!isDraggingSpace} // Disable pan when dragging a space
           enableZoom={true}
+          enableDamping={true}
+          dampingFactor={0.15} // Lower = snappier (default is 0.05)
+          panSpeed={1.5} // Higher = faster panning
           minDistance={100}
           maxDistance={500}
           minPolarAngle={0} // Lock at 90 degrees (straight down)

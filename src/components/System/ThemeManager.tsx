@@ -22,24 +22,43 @@ export const APP_COLORS = {
   }
 }
 
-// Space type color mappings (CTE spaces)
+// Space type color mappings
 export const SPACE_TYPE_COLORS = {
-  'program': {
+  'technology': {
+    color: APP_COLORS.secondary.darkBlue,
+    label: 'Technology'
+  },
+  'trades': {
     color: APP_COLORS.secondary.skyBlue,
-    label: 'Program Space'
+    label: 'Trades'
   },
-  'circulation': {
-    color: APP_COLORS.secondary.orange, // Yellow (using orange as closest)
-    label: 'Circulation'
+  'band': {
+    color: APP_COLORS.primary.brick,
+    label: 'Band'
   },
-  'support': {
+  'systems': {
+    color: APP_COLORS.secondary.chartreuse,
+    label: 'Systems'
+  },
+  'admin': {
     color: APP_COLORS.secondary.salmon,
-    label: 'Support Space'
+    label: 'Admin'
+  },
+  'service': {
+    color: APP_COLORS.secondary.orange,
+    label: 'Service'
   },
   'generic': {
     color: APP_COLORS.secondary.oliveGreen,
-    label: 'Generic Space'
+    label: 'Generic'
   }
+}
+
+/**
+ * Get color for a space based on its type
+ */
+export function getSpaceColor(type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic'): string {
+  return SPACE_TYPE_COLORS[type]?.color || APP_COLORS.secondary.oliveGreen;
 }
 
 // Glassmorphism Effects

@@ -1,6 +1,7 @@
 import { Group, Rect } from 'react-konva';
 import { SpaceTag } from './SpaceTag';
 import type { SpaceInstance } from '../../types';
+import { getSpaceColor } from '../System/ThemeManager';
 
 interface SpaceBlockProps {
   space: SpaceInstance;
@@ -25,7 +26,7 @@ export function SpaceBlock({ space, scale, snapInterval, onDragStart, onDragEnd 
         y={space.position.y}
         width={space.width}
         height={space.depth}
-        fill={space.color}
+        fill={getSpaceColor(space.type)}
         opacity={0.85}
         cornerRadius={cornerRadius}
         draggable

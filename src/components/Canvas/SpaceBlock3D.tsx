@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import * as LucideIcons from 'lucide-react';
 import { SpaceControls } from './SpaceControls';
 import { useSpring, animated, config } from '@react-spring/three';
+import { getSpaceColor } from '../System/ThemeManager';
 
 interface SpaceBlock3DProps {
   space: SpaceInstance;
@@ -27,7 +28,11 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
   const meshRef = useRef<Mesh>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [showControls, setShowControls] = useState(false);
   const [controlsHovered, setControlsHovered] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [editWidth, setEditWidth] = useState<string>(space.width.toString());
+  const [editDepth, setEditDepth] = useState<string>(space.depth.toString());
   const { camera, gl } = useThree();
   const planeRef = useRef(new Plane(new Vector3(0, 1, 0), 0));
   const dragOffsetRef = useRef<{ x: number; z: number }>({ x: 0, z: 0 });
@@ -60,6 +65,20 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
       setTargetPosition([space.position.x, 0, space.position.z]);
     }
   }, [space.position.x, space.position.z, isDragging]);
+
+  // Close controls when clicking outside
+  useEffect(() => {
+    if (!showControls) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      // Don't close if clicking on controls
+      if (controlsHovered) return;
+      setShowControls(false);
+    };
+
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, [showControls, controlsHovered]);
 
   // Handle global pointer move
   useEffect(() => {
@@ -120,6 +139,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
     };
   }, [isDragging, camera, gl, position, snapToGrid, onDragEnd, onMove]);
 
+
   // Create extruded rounded rectangle geometry
   const geometry = useMemo(() => {
     // Calculate bevel size based on smallest dimension
@@ -164,18 +184,32 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
 
-    // Calculate offset between click point and object center
-    const clickPoint = e.point;
-    dragOffsetRef.current = {
-      x: clickPoint.x - targetPosition[0],
-      z: clickPoint.z - targetPosition[2],
-    };
+    // Don't allow dragging or controls while resizing
+    if (isResizing) {
+      return;
+    }
 
-    setIsDragging(true);
+    // Right-click to show controls
+    if (e.button === 2) {
+      setShowControls(!showControls);
+      return;
+    }
 
-    // Notify parent to disable panning
-    if (onDragStart) {
-      onDragStart();
+    // Left-click to drag
+    if (e.button === 0) {
+      // Calculate offset between click point and object center
+      const clickPoint = e.point;
+      dragOffsetRef.current = {
+        x: clickPoint.x - targetPosition[0],
+        z: clickPoint.z - targetPosition[2],
+      };
+
+      setIsDragging(true);
+
+      // Notify parent to disable panning
+      if (onDragStart) {
+        onDragStart();
+      }
     }
   };
 
@@ -190,17 +224,50 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
         { x: 1, y: 1, z: 1 }
       );
     }
+    setShowControls(false);
   };
 
   const handleDelete = () => {
     if (onDelete) {
       onDelete();
     }
+    setShowControls(false);
   };
 
   const handleResize = () => {
-    // TODO: Implement resize functionality
-    console.log('Resize clicked for', space.name);
+    setIsResizing(true);
+    setShowControls(false);
+    setEditWidth(space.width.toString());
+    setEditDepth(space.depth.toString());
+
+    // Notify parent to disable panning
+    if (onDragStart) {
+      onDragStart();
+    }
+  };
+
+  const handleApplyResize = () => {
+    const newWidth = parseFloat(editWidth);
+    const newDepth = parseFloat(editDepth);
+
+    // Only apply if both values are valid numbers and at least the snap interval
+    if (!isNaN(newWidth) && !isNaN(newDepth) && newWidth >= snapInterval && newDepth >= snapInterval && onTransform) {
+      const scaleX = newWidth / space.width;
+      const scaleZ = newDepth / space.depth;
+
+      onTransform(
+        { x: targetPosition[0], y: 0, z: targetPosition[2] },
+        space.rotation || 0,
+        { x: scaleX, y: 1, z: scaleZ }
+      );
+    }
+
+    setIsResizing(false);
+
+    // Re-enable panning
+    if (onDragEnd) {
+      onDragEnd();
+    }
   };
 
   // Combine position with yOffset
@@ -220,18 +287,22 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
         onPointerDown={handlePointerDown}
+        onContextMenu={(e) => {
+          e.stopPropagation();
+          (e.nativeEvent as any).preventDefault?.();
+        }}
         castShadow
         receiveShadow
       >
         <meshStandardMaterial
-          color={space.color}
+          color={getSpaceColor(space.type)}
           roughness={0.5}
           metalness={0.1}
         />
       </mesh>
 
-      {/* Hover controls (appears on hover) */}
-      {(hovered || controlsHovered) && !isDragging && (
+      {/* Controls (appears on right-click) */}
+      {(showControls || controlsHovered) && !isDragging && (
         <Html
           position={[0, height + 1, 0]}
           center
@@ -250,6 +321,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
               onRotate={handleRotate}
               onDelete={handleDelete}
               onResize={handleResize}
+              isClosing={!showControls && controlsHovered}
             />
           </div>
         </Html>
@@ -305,6 +377,108 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
           </div>
         )}
       </Html>
+
+      {/* Resize Form */}
+      {isResizing && (
+        <Html
+          position={[0, height + 1, 0]}
+          center
+          sprite
+          zIndexRange={[100, 100]}
+          style={{ pointerEvents: 'auto' }}
+        >
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-gray-200 p-3 min-w-[220px]">
+            <div className="space-y-2">
+              {/* Width Input */}
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Width</label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      const current = parseFloat(editWidth) || 0;
+                      setEditWidth(Math.max(snapInterval, current - snapInterval).toString());
+                    }}
+                    className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-bold"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    value={editWidth}
+                    onChange={(e) => setEditWidth(e.target.value)}
+                    step={snapInterval}
+                    min={snapInterval}
+                    className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                  />
+                  <button
+                    onClick={() => {
+                      const current = parseFloat(editWidth) || 0;
+                      setEditWidth((current + snapInterval).toString());
+                    }}
+                    className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-bold"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Depth Input */}
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Depth</label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      const current = parseFloat(editDepth) || 0;
+                      setEditDepth(Math.max(snapInterval, current - snapInterval).toString());
+                    }}
+                    className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-bold"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    value={editDepth}
+                    onChange={(e) => setEditDepth(e.target.value)}
+                    step={snapInterval}
+                    min={snapInterval}
+                    className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                  />
+                  <button
+                    onClick={() => {
+                      const current = parseFloat(editDepth) || 0;
+                      setEditDepth((current + snapInterval).toString());
+                    }}
+                    className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-bold"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleApplyResize}
+                  className="flex-1 bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 text-sm font-medium"
+                >
+                  Apply
+                </button>
+                <button
+                  onClick={() => {
+                    setIsResizing(false);
+                    if (onDragEnd) {
+                      onDragEnd();
+                    }
+                  }}
+                  className="flex-1 bg-gray-500 text-white px-3 py-1.5 rounded hover:bg-gray-600 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </Html>
+      )}
     </animated.group>
   );
 }

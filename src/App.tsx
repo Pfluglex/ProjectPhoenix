@@ -4,7 +4,7 @@ import { ThemeProvider } from "./components/System/ThemeManager"
 import { AppSidebar } from "./components/SideBars/AppSidebar"
 import { CanvasView } from "./components/MainViews/CanvasView"
 import { SpaceLibrary } from "./components/MainViews/SpaceLibrary"
-import { MetricsView } from "./components/MainViews/MetricsView"
+import { ProjectLibraryView } from "./components/MainViews/ProjectLibraryView"
 import { SettingsView } from "./components/MainViews/SettingsView"
 import type { ActiveView } from "./types"
 
@@ -23,7 +23,7 @@ function MainAppContent() {
       case 'library':
         return <SpaceLibrary />
       case 'metrics':
-        return <MetricsView />
+        return <ProjectLibraryView />
       case 'settings':
         return <SettingsView />
       default:

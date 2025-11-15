@@ -5,9 +5,10 @@ interface SpaceControlsProps {
   onRotate: () => void;
   onDelete: () => void;
   onResize: () => void;
+  isClosing?: boolean;
 }
 
-export function SpaceControls({ onRotate, onDelete, onResize }: SpaceControlsProps) {
+export function SpaceControls({ onRotate, onDelete, onResize, isClosing = false }: SpaceControlsProps) {
   const radius = 40; // Distance from center
   const buttonSize = 36; // Size of each button
 
@@ -37,7 +38,13 @@ export function SpaceControls({ onRotate, onDelete, onResize }: SpaceControlsPro
               top: `calc(50% - ${buttonSize / 2}px)`,
             }}
             initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
-            animate={{
+            animate={isClosing ? {
+              x: 0,
+              y: 0,
+              scale: 0,
+              opacity: 0,
+              rotate: -360
+            } : {
               x: x,
               y: y,
               scale: 1,
@@ -48,7 +55,7 @@ export function SpaceControls({ onRotate, onDelete, onResize }: SpaceControlsPro
               type: 'spring',
               stiffness: 260,
               damping: 20,
-              delay: index * 0.05
+              delay: isClosing ? (2 - index) * 0.05 : index * 0.05
             }}
             whileHover={{ scale: 1.15 }}
             whileTap={{ scale: 0.95 }}
