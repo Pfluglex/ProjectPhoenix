@@ -10,17 +10,28 @@ import { Measurement } from './Measurement';
 // Component to handle raycasting for drag preview
 function DragPreviewHandler({
   onPositionUpdate,
-  snapInterval
+  snapInterval,
+  gridY
 }: {
   onPositionUpdate: (pos: { x: number; y: number; z: number }) => void;
   snapInterval: number;
+  gridY: number;
 }) {
   const { camera, gl } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
-  const groundPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const groundPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -gridY));
+
+  console.log('🔧 [DRAG PREVIEW HANDLER] Component mounted | gridY:', gridY);
 
   useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
+    console.log('🔧 [DRAG PREVIEW HANDLER] Effect running | gridY:', gridY);
+
+    // Update plane when gridY changes
+    groundPlane.current.constant = -gridY;
+
+    const handleDragOver = (event: DragEvent) => {
+      console.log('📍 [DRAG PREVIEW] DragOver event fired | clientX:', event.clientX, '| clientY:', event.clientY);
+
       // Get mouse position in normalized device coordinates
       const rect = gl.domElement.getBoundingClientRect();
       const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -38,13 +49,16 @@ function DragPreviewHandler({
         const snappedX = Math.round(intersection.x / snapInterval) * snapInterval;
         const snappedZ = Math.round(intersection.z / snapInterval) * snapInterval;
 
-        onPositionUpdate({ x: snappedX, y: 0, z: snappedZ });
+        const newPos = { x: snappedX, y: gridY, z: snappedZ };
+        console.log('📍 [DRAG PREVIEW] Preview position updated | Y:', gridY, '| Full pos:', newPos);
+        onPositionUpdate(newPos);
       }
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [camera, gl, snapInterval, onPositionUpdate]);
+    // Use dragover event instead of mousemove since we're in a drag operation
+    window.addEventListener('dragover', handleDragOver as any);
+    return () => window.removeEventListener('dragover', handleDragOver as any);
+  }, [camera, gl, snapInterval, gridY, onPositionUpdate]);
 
   return null;
 }
@@ -53,15 +67,17 @@ function DragPreviewHandler({
 function MeasurePreviewHandler({
   onPositionUpdate,
   snapInterval,
-  enabled
+  enabled,
+  gridY
 }: {
   onPositionUpdate: (pos: { x: number; z: number } | null) => void;
   snapInterval: number;
   enabled: boolean;
+  gridY: number;
 }) {
   const { camera, gl } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
-  const groundPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const groundPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -gridY));
 
   useEffect(() => {
     if (!enabled) {
@@ -88,7 +104,7 @@ function MeasurePreviewHandler({
 
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [camera, gl, snapInterval, enabled, onPositionUpdate]);
+  }, [camera, gl, snapInterval, gridY, enabled, onPositionUpdate]);
 
   return null;
 }
@@ -103,6 +119,7 @@ interface Canvas3DProps {
   onSpaceTransform?: (instanceId: string, position: { x: number; y: number; z: number }, rotation: number, scale: { x: number; y: number; z: number }) => void;
   onSpaceDelete?: (instanceId: string) => void;
   snapInterval?: number;
+  currentLevel?: number;
   labelMode?: 'text' | 'icon';
   cameraAngle?: 45 | 90;
   draggedSpace?: any;
@@ -113,6 +130,7 @@ interface Canvas3DProps {
   measurements?: Array<{ id: string; point1: { x: number; z: number }; point2: { x: number; z: number } }>;
   onMeasureClick?: (x: number, z: number) => void;
   onDeleteMeasurement?: (id: string) => void;
+  presentationMode?: boolean;
 }
 
 export function Canvas3D({
@@ -122,6 +140,7 @@ export function Canvas3D({
   onSpaceTransform,
   onSpaceDelete,
   snapInterval = 5,
+  currentLevel = 1,
   labelMode = 'text',
   cameraAngle = 90,
   draggedSpace,
@@ -131,7 +150,8 @@ export function Canvas3D({
   measurePoints = [],
   measurements = [],
   onMeasureClick,
-  onDeleteMeasurement
+  onDeleteMeasurement,
+  presentationMode = false
 }: Canvas3DProps) {
   const { componentThemes } = useTheme();
   componentThemes.canvasControls.light;
@@ -140,6 +160,9 @@ export function Canvas3D({
   const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
   const [measurePreviewPosition, setMeasurePreviewPosition] = useState<{ x: number; z: number } | null>(null);
   const controlsRef = useRef<any>(null);
+
+  // Calculate current level Y position (each level is 15 feet)
+  const gridY = (currentLevel - 1) * 15;
 
   // Calculate camera position based on angle
   const getCameraPosition = (angle: 45 | 90): [number, number, number] => {
@@ -167,28 +190,26 @@ export function Canvas3D({
 
     const spaceTemplate = JSON.parse(spaceData);
 
-    // Get drop position in the container
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    console.log('🎯 [CANVAS3D handleDrop] currentLevel:', currentLevel, '| Calculated gridY:', gridY, '| Formula: (currentLevel - 1) * 15 = (' + currentLevel + ' - 1) * 15 = ' + gridY);
 
-    // For now, place at a simple position - we'll improve this with raycasting
-    const canvasX = ((x - rect.width / 2) / 10);
-    const canvasZ = ((y - rect.height / 2) / 10);
+    // Use the preview position that was calculated by raycasting
+    // IMPORTANT: Force Y to gridY since DragPreviewHandler may not update it properly
+    const finalPosition = {
+      x: previewPosition.x,
+      y: gridY, // Force Y to be the correct level height
+      z: previewPosition.z
+    };
 
-    // Snap to grid
-    const snappedX = Math.round(canvasX / snapInterval) * snapInterval;
-    const snappedZ = Math.round(canvasZ / snapInterval) * snapInterval;
-
-    // Create space instance
     const newSpace: SpaceInstance = {
       ...spaceTemplate,
       instanceId: `${spaceTemplate.id}-${Date.now()}`,
       templateId: spaceTemplate.id,
-      position: { x: snappedX, y: 0, z: snappedZ },
+      position: finalPosition,
       rotation: 0,
+      level: currentLevel, // Assign to current building level
     };
 
+    console.log('🎨 [CANVAS3D] Dropping new space:', spaceTemplate.name, '| Preview pos:', previewPosition, '| Final pos:', finalPosition, '| Level:', currentLevel, '| gridY:', gridY);
     onSpaceDrop(newSpace);
     setIsDraggingFromPalette(false);
   };
@@ -202,6 +223,7 @@ export function Canvas3D({
 
         // Set dragging state
         if (!isDraggingFromPalette && draggedSpace) {
+          console.log('🟢 [CANVAS3D] onDragOver - Setting isDraggingFromPalette to TRUE | draggedSpace:', draggedSpace?.name);
           setIsDraggingFromPalette(true);
         }
       }}
@@ -223,6 +245,11 @@ export function Canvas3D({
       <Canvas
         key={cameraAngle} // Re-mount canvas when angle changes for instant switch
         orthographic={cameraAngle === 90} // Use orthographic for top-down, perspective for isometric
+        shadows // Enable shadow rendering
+        gl={{
+          antialias: true,
+          alpha: true,
+        }}
         camera={
           cameraAngle === 90
             ? {
@@ -240,6 +267,7 @@ export function Canvas3D({
           <DragPreviewHandler
             onPositionUpdate={setPreviewPosition}
             snapInterval={snapInterval}
+            gridY={gridY}
           />
         )}
 
@@ -248,72 +276,100 @@ export function Canvas3D({
           <MeasurePreviewHandler
             onPositionUpdate={setMeasurePreviewPosition}
             snapInterval={snapInterval}
+            gridY={gridY}
             enabled={true}
           />
         )}
 
         {/* Lighting */}
         <ambientLight intensity={1.2} />
-        <directionalLight position={[50, 100, 50]} intensity={1.5} castShadow />
+        <directionalLight
+          position={[50, 100, 50]}
+          intensity={1.5}
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-far={500}
+          shadow-camera-left={-200}
+          shadow-camera-right={200}
+          shadow-camera-top={200}
+          shadow-camera-bottom={-200}
+          shadow-bias={-0.0001}
+        />
         <directionalLight position={[-50, 50, -50]} intensity={0.8} />
         <hemisphereLight args={['#ffffff', '#666666', 0.6]} />
 
-        {/* Custom dashed grid */}
-        <group position={[0, 0, 0]}>
-          {/* Create dashed grid lines */}
-          {Array.from({ length: 201 }, (_, i) => i - 100).map((i) => {
-            const pos = i * 5;
-            const isMajor = i % 6 === 0; // Every 6th line (30 feet)
-            return (
-              <group key={`grid-${i}`}>
-                {/* Vertical line */}
-                <line>
-                  <bufferGeometry>
-                    <bufferAttribute
-                      attach="attributes-position"
-                      count={2}
-                      array={new Float32Array([pos, 0, -500, pos, 0, 500])}
-                      itemSize={3}
-                    />
-                  </bufferGeometry>
-                  <lineDashedMaterial
-                    color={isMajor ? "#9CA3AF" : "#E5E7EB"}
-                    linewidth={isMajor ? 4.5 : 1.5}
-                    dashSize={isMajor ? 10 : 5}
-                    gapSize={isMajor ? 5 : 5}
-                  />
-                </line>
-                {/* Horizontal line */}
-                <line>
-                  <bufferGeometry>
-                    <bufferAttribute
-                      attach="attributes-position"
-                      count={2}
-                      array={new Float32Array([-500, 0, pos, 500, 0, pos])}
-                      itemSize={3}
-                    />
-                  </bufferGeometry>
-                  <lineDashedMaterial
-                    color={isMajor ? "#9CA3AF" : "#E5E7EB"}
-                    linewidth={isMajor ? 4.5 : 1.5}
-                    dashSize={isMajor ? 10 : 5}
-                    gapSize={isMajor ? 5 : 5}
-                  />
-                </line>
-              </group>
-            );
-          })}
-        </group>
+        {/* Grid or Ground Plane based on presentation mode */}
+        {presentationMode ? (
+          /* White ground plane for presentation mode */
+          <mesh position={[0, gridY - 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <planeGeometry args={[1000, 1000]} />
+            <meshStandardMaterial
+              color="#ffffff"
+              roughness={0.9}
+              metalness={0}
+            />
+          </mesh>
+        ) : (
+          <>
+            {/* Custom dashed grid */}
+            <group position={[0, gridY, 0]}>
+              {/* Create dashed grid lines */}
+              {Array.from({ length: 201 }, (_, i) => i - 100).map((i) => {
+                const pos = i * 5;
+                const isMajor = i % 6 === 0; // Every 6th line (30 feet)
+                return (
+                  <group key={`grid-${i}`}>
+                    {/* Vertical line */}
+                    <line>
+                      <bufferGeometry>
+                        <bufferAttribute
+                          attach="attributes-position"
+                          count={2}
+                          array={new Float32Array([pos, 0, -500, pos, 0, 500])}
+                          itemSize={3}
+                        />
+                      </bufferGeometry>
+                      <lineDashedMaterial
+                        color={isMajor ? "#9CA3AF" : "#E5E7EB"}
+                        linewidth={isMajor ? 4.5 : 1.5}
+                        dashSize={isMajor ? 10 : 5}
+                        gapSize={isMajor ? 5 : 5}
+                      />
+                    </line>
+                    {/* Horizontal line */}
+                    <line>
+                      <bufferGeometry>
+                        <bufferAttribute
+                          attach="attributes-position"
+                          count={2}
+                          array={new Float32Array([-500, 0, pos, 500, 0, pos])}
+                          itemSize={3}
+                        />
+                      </bufferGeometry>
+                      <lineDashedMaterial
+                        color={isMajor ? "#9CA3AF" : "#E5E7EB"}
+                        linewidth={isMajor ? 4.5 : 1.5}
+                        dashSize={isMajor ? 10 : 5}
+                        gapSize={isMajor ? 5 : 5}
+                      />
+                    </line>
+                  </group>
+                );
+              })}
+            </group>
 
-        {/* Origin marker */}
-        <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[2, 32]} />
-          <meshBasicMaterial color="#EF4444" />
-        </mesh>
+            {/* Origin marker */}
+            <mesh position={[0, gridY + 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[2, 32]} />
+              <meshBasicMaterial color="#EF4444" />
+            </mesh>
+          </>
+        )}
 
         {/* Invisible ground plane for drag events and measurements */}
         <mesh
-          position={[0, 0, 0]}
+          position={[0, gridY, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           visible={false}
           onClick={(e: ThreeEvent<MouseEvent>) => {
@@ -337,6 +393,7 @@ export function Canvas3D({
             id={measurement.id}
             point1={measurement.point1}
             point2={measurement.point2}
+            gridY={gridY}
             onDelete={onDeleteMeasurement}
           />
         ))}
@@ -345,7 +402,7 @@ export function Canvas3D({
         {measureMode && measurePoints.length > 0 && (
           <>
             {/* First point marker */}
-            <mesh position={[measurePoints[0].x, 0.5, measurePoints[0].z]}>
+            <mesh position={[measurePoints[0].x, gridY + 0.5, measurePoints[0].z]}>
               <sphereGeometry args={[1, 16, 16]} />
               <meshBasicMaterial color="#3B82F6" />
             </mesh>
@@ -356,6 +413,7 @@ export function Canvas3D({
                 id="preview"
                 point1={measurePoints[0]}
                 point2={measurePreviewPosition}
+                gridY={gridY}
                 isPreview={true}
               />
             )}
@@ -368,8 +426,10 @@ export function Canvas3D({
             key={space.instanceId}
             space={space}
             snapInterval={snapInterval}
+            currentLevel={currentLevel}
             labelMode={labelMode}
             isSelected={selectedSpaceIds.has(space.instanceId)}
+            presentationMode={presentationMode}
             onDragStart={() => setIsDraggingSpace(true)}
             onDragEnd={() => setIsDraggingSpace(false)}
             onMove={(x, y, z) => {
@@ -405,8 +465,10 @@ export function Canvas3D({
               templateId: draggedSpace.id,
               position: previewPosition,
               rotation: 0,
+              level: currentLevel, // Preview is always on current level
             }}
             snapInterval={snapInterval}
+            currentLevel={currentLevel}
             labelMode={labelMode}
           />
         )}

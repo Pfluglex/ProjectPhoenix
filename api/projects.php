@@ -115,7 +115,7 @@ function loadProject() {
         $stmt->close();
 
         // Get project spaces
-        $stmt = $conn->prepare("SELECT project_id, space_instance_id, template_id, space_id as id, name, width, depth, height, icon, type, position_x, position_y, position_z, rotation FROM project_spaces WHERE project_id = ?");
+        $stmt = $conn->prepare("SELECT project_id, space_instance_id, template_id, space_id as id, name, width, depth, height, icon, type, position_x, position_y, position_z, rotation, level FROM project_spaces WHERE project_id = ?");
         $stmt->bind_param('s', $project_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -130,6 +130,7 @@ function loadProject() {
             $row['position_y'] = (float)$row['position_y'];
             $row['position_z'] = (float)$row['position_z'];
             $row['rotation'] = (float)$row['rotation'];
+            $row['level'] = (int)$row['level'];
 
             $spaces[] = $row;
         }
@@ -229,11 +230,13 @@ function saveProject() {
 
         // Insert spaces
         if (!empty($spaces)) {
-            $stmt = $conn->prepare("INSERT INTO project_spaces (project_id, space_instance_id, template_id, space_id, name, width, depth, height, icon, type, position_x, position_y, position_z, rotation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $conn->prepare("INSERT INTO project_spaces (project_id, space_instance_id, template_id, space_id, name, width, depth, height, icon, type, position_x, position_y, position_z, rotation, level) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
             foreach ($spaces as $space) {
+                $level = isset($space['level']) ? $space['level'] : 1; // Default to level 1 for backward compatibility
+
                 $stmt->bind_param(
-                    'sssssdddssdddd',
+                    'sssssdddssddddi',
                     $space['project_id'],
                     $space['space_instance_id'],
                     $space['template_id'],
@@ -247,7 +250,8 @@ function saveProject() {
                     $space['position_x'],
                     $space['position_y'],
                     $space['position_z'],
-                    $space['rotation']
+                    $space['rotation'],
+                    $level
                 );
 
                 if (!$stmt->execute()) {

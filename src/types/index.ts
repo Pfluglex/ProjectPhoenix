@@ -55,6 +55,7 @@ export interface SpaceDefinition {
 export interface SpaceInstance extends Space3D {
   templateId: string; // References SpaceDefinition.id (e.g., "tech-001")
   instanceId: string; // Unique instance ID (e.g., "tech-001-instance-1")
+  level: number; // Building level (1-4), each level is 15' tall
 }
 
 export interface ProjectMetrics {

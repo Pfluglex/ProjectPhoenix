@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronDown, ChevronRight, Ruler } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Ruler, Eye } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { listSpaces, type SpaceDefinition } from '../../lib/api';
 import { useTheme, getSpaceColor, SPACE_TYPE_COLORS } from '../System/ThemeManager';
@@ -13,6 +13,8 @@ interface SpacePaletteProps {
   };
   snapInterval?: number;
   onSnapIntervalChange?: (interval: number) => void;
+  currentLevel?: number;
+  onLevelChange?: (level: number) => void;
   labelMode?: 'text' | 'icon';
   onLabelModeChange?: (mode: 'text' | 'icon') => void;
   cameraAngle?: 45 | 90;
@@ -27,9 +29,11 @@ interface SpacePaletteProps {
   onMeasureModeChange?: (enabled: boolean) => void;
   measurementCount?: number;
   onClearAllMeasurements?: () => void;
+  presentationMode?: boolean;
+  onPresentationModeChange?: (enabled: boolean) => void;
 }
 
-export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange, cameraAngle = 90, onCameraAngleChange, placedSpaces = [], onSaveProject, onClearCanvas, onLoadProject, onDragStart, onDragEnd, measureMode = false, onMeasureModeChange, measurementCount = 0, onClearAllMeasurements }: SpacePaletteProps) {
+export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapIntervalChange, currentLevel = 1, onLevelChange, labelMode = 'text', onLabelModeChange, cameraAngle = 90, onCameraAngleChange, placedSpaces = [], onSaveProject, onClearCanvas, onLoadProject, onDragStart, onDragEnd, measureMode = false, onMeasureModeChange, measurementCount = 0, onClearAllMeasurements, presentationMode = false, onPresentationModeChange }: SpacePaletteProps) {
   const { componentThemes, colors } = useTheme();
   const theme = componentThemes.canvasPalette.light;
   const [spaces, setSpaces] = useState<SpaceDefinition[]>([]);
@@ -142,56 +146,58 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
 
         {/* Controls - only show in Library mode */}
         {activePanel === 'library' && (
-          <div className="p-4 space-y-3">
-            {/* Camera Angle and Label Style Toggles - Horizontal Stack */}
-            <div className="flex gap-3">
-              {/* Camera Angle Toggle */}
-              <div className="flex-1">
-                <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
-                  <span>Camera</span>
-                  <span className="text-gray-500">{cameraAngle}°</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-600">Top</span>
-                  <button
-                    onClick={() => onCameraAngleChange?.(cameraAngle === 90 ? 45 : 90)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      cameraAngle === 45 ? 'bg-blue-500' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        cameraAngle === 45 ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                  <span className="text-xs text-gray-600">Iso</span>
-                </div>
-              </div>
+          <div className="p-4 space-y-2">
+            {/* iOS 26 Style Toggles - Stacked Vertically */}
 
-              {/* Label Style Toggle */}
-              <div className="flex-1">
-                <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
-                  <span>Labels</span>
-                  <span className="text-gray-500">{labelMode === 'text' ? 'Text' : 'Icon'}</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-600">Text</span>
-                  <button
-                    onClick={() => onLabelModeChange?.(labelMode === 'text' ? 'icon' : 'text')}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      labelMode === 'icon' ? 'bg-blue-500' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        labelMode === 'icon' ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                  <span className="text-xs text-gray-600">Icon</span>
-                </div>
-              </div>
+            {/* Isometric View Toggle */}
+            <div className="flex items-center justify-between py-2.5 border-b border-gray-100">
+              <span className="text-sm text-gray-900">Isometric View</span>
+              <button
+                onClick={() => onCameraAngleChange?.(cameraAngle === 90 ? 45 : 90)}
+                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 ${
+                  cameraAngle === 45 ? 'bg-green-500' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-7 w-7 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                    cameraAngle === 45 ? 'translate-x-[26px]' : 'translate-x-[2px]'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Icon Labels Toggle */}
+            <div className="flex items-center justify-between py-2.5 border-b border-gray-100">
+              <span className="text-sm text-gray-900">Icon Labels</span>
+              <button
+                onClick={() => onLabelModeChange?.(labelMode === 'text' ? 'icon' : 'text')}
+                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 ${
+                  labelMode === 'icon' ? 'bg-green-500' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-7 w-7 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                    labelMode === 'icon' ? 'translate-x-[26px]' : 'translate-x-[2px]'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Presentation Mode Toggle */}
+            <div className="flex items-center justify-between py-2.5 border-b border-gray-100">
+              <span className="text-sm text-gray-900">Presentation Mode</span>
+              <button
+                onClick={() => onPresentationModeChange?.(!presentationMode)}
+                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 ${
+                  presentationMode ? 'bg-green-500' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-7 w-7 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                    presentationMode ? 'translate-x-[26px]' : 'translate-x-[2px]'
+                  }`}
+                />
+              </button>
             </div>
 
             {/* Measure Tool Toggle */}
@@ -255,6 +261,31 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                 <span>15'</span>
                 <span>20'</span>
                 <span>30'</span>
+              </div>
+            </div>
+
+            {/* Building Level */}
+            <div>
+              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+                <span>Building Level</span>
+                <span className="text-gray-500">L{currentLevel} (Y={(currentLevel - 1) * 15}')</span>
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="4"
+                step="1"
+                value={currentLevel}
+                onChange={(e) => {
+                  onLevelChange?.(Number(e.target.value));
+                }}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-1 px-1">
+                <span>L1</span>
+                <span>L2</span>
+                <span>L3</span>
+                <span>L4</span>
               </div>
             </div>
 
@@ -374,6 +405,7 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                           className={`p-1.5 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder} bg-white select-none`}
                           draggable="true"
                           onDragStart={(e: any) => {
+                            console.log('🎯 [PALETTE] Dragging space from RECENT:', space.name, '| Initial Y: N/A (template)');
                             e.dataTransfer.setData('application/json', JSON.stringify(space));
                             e.dataTransfer.effectAllowed = 'copy';
                             onDragStart?.(space);
@@ -463,6 +495,7 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                               className={`p-1.5 ${theme.spaceItem.hover} rounded cursor-grab active:cursor-grabbing transition-colors border ${theme.spaceItem.border} ${theme.spaceItem.hoverBorder} select-none`}
                               draggable="true"
                               onDragStart={(e: any) => {
+                                console.log('🎯 [PALETTE] Dragging space from LIBRARY:', space.name, '| Initial Y: N/A (template)');
                                 e.dataTransfer.setData('application/json', JSON.stringify(space));
                                 e.dataTransfer.effectAllowed = 'copy';
 
@@ -523,16 +556,44 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
       {/* Properties Content */}
       {activePanel === 'properties' && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* My Build Section */}
+            {/* Building Level Totals */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-800">My Build</h3>
-                {placedSpaces.length > 0 && (
-                  <span className="text-sm font-bold text-blue-600">
-                    {placedSpaces.reduce((total, space) => total + (space.width * space.depth), 0).toLocaleString()} sf
-                  </span>
-                )}
-              </div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">Building Totals</h3>
+              {placedSpaces.length === 0 ? (
+                <div className="text-xs text-gray-500 text-center py-4">
+                  No spaces added yet
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[1, 2, 3, 4].map((level) => {
+                    const levelSpaces = placedSpaces.filter((s: any) => s.level === level);
+                    const levelTotal = levelSpaces.reduce((sum: number, space: any) => sum + (space.width * space.depth), 0);
+
+                    if (levelSpaces.length === 0) return null;
+
+                    return (
+                      <div key={level} className="flex items-center justify-between text-xs p-2 bg-gray-50 rounded">
+                        <span className="font-semibold text-gray-700">Level {level}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-gray-600">{levelSpaces.length} space{levelSpaces.length !== 1 ? 's' : ''}</span>
+                          <span className="font-bold text-blue-600">{levelTotal.toLocaleString()} sf</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center justify-between text-sm p-2 bg-blue-50 rounded border border-blue-200 mt-3">
+                    <span className="font-bold text-gray-800">Total Building</span>
+                    <span className="font-bold text-blue-600">
+                      {placedSpaces.reduce((total: number, space: any) => total + (space.width * space.depth), 0).toLocaleString()} sf
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* My Build Section - Grouped by Level */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">Spaces by Level</h3>
 
               {placedSpaces.length === 0 ? (
                 <div className="text-xs text-gray-500 text-center py-4">
@@ -540,26 +601,27 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                 </div>
               ) : (
                 <>
-                  {/* Group spaces by type */}
+                  {/* Group spaces by level */}
                   {Object.entries(
                     placedSpaces.reduce((acc, space) => {
-                      if (!acc[space.type]) {
-                        acc[space.type] = [];
+                      const level = space.level || 1;
+                      if (!acc[level]) {
+                        acc[level] = [];
                       }
-                      acc[space.type].push(space);
+                      acc[level].push(space);
                       return acc;
-                    }, {} as Record<string, typeof placedSpaces>)
-                  ).map(([type, typeSpaces]) => {
-                    const spacesArray = typeSpaces as typeof placedSpaces;
-                    const typeTotal = spacesArray.reduce((sum: number, space: typeof placedSpaces[0]) => sum + (space.width * space.depth), 0);
+                    }, {} as Record<number, typeof placedSpaces>)
+                  )
+                  .sort(([a], [b]) => Number(a) - Number(b)) // Sort by level number
+                  .map(([level, levelSpaces]) => {
+                    const spacesArray = levelSpaces as typeof placedSpaces;
+                    const levelTotal = spacesArray.reduce((sum: number, space: typeof placedSpaces[0]) => sum + (space.width * space.depth), 0);
                     return (
-                      <div key={type} className="mb-3">
-                        <div className="flex items-center justify-between text-xs font-semibold text-gray-700 mb-1">
-                          <span className="capitalize">
-                            {SPACE_TYPE_COLORS[type as 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress']?.label || type} ({spacesArray.length})
-                          </span>
-                          <span className="text-[10px] font-medium" style={{ color: getSpaceColor(type as 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress') }}>
-                            {typeTotal.toLocaleString()} sf
+                      <div key={level} className="mb-4">
+                        <div className="flex items-center justify-between text-xs font-semibold text-gray-700 mb-2 pb-1 border-b border-gray-200">
+                          <span>Level {level} ({spacesArray.length})</span>
+                          <span className="text-blue-600">
+                            {levelTotal.toLocaleString()} sf
                           </span>
                         </div>
                         <div className="space-y-1">

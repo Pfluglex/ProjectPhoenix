@@ -34,6 +34,7 @@ export interface ProjectSpace {
   position_y: number;
   position_z: number;
   rotation: number;
+  level: number; // Building level (1-4)
 }
 
 export interface Measurement {

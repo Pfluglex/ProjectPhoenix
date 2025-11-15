@@ -11,8 +11,10 @@ import { getSpaceColor } from '../System/ThemeManager';
 interface SpaceBlock3DProps {
   space: SpaceInstance;
   snapInterval: number;
+  currentLevel: number; // Current building level being viewed
   labelMode?: 'text' | 'icon';
   isSelected?: boolean;
+  presentationMode?: boolean;
   onDragStart?: () => void;
   onDragEnd?: () => void;
   onMove?: (x: number, y: number, z: number) => void;
@@ -25,7 +27,38 @@ interface SpaceBlock3DProps {
   onToggleSelection?: () => void;
 }
 
-export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelected = false, onDragStart, onDragEnd, onMove, onTransform, onDelete, onToggleSelection }: SpaceBlock3DProps) {
+export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 'text', isSelected = false, presentationMode = false, onDragStart, onDragEnd, onMove, onTransform, onDelete, onToggleSelection }: SpaceBlock3DProps) {
+  // Visual filtering based on level
+  // In presentation mode, show all spaces at full opacity
+  // Otherwise, ghost spaces that are NOT on the current level
+  const isOnCurrentLevel = space.level === currentLevel;
+
+  // Helper function to desaturate and dim colors for spaces not on current level
+  const getDisplayColor = (baseColor: string): string => {
+    if (presentationMode || isOnCurrentLevel) return baseColor;
+
+    // Convert hex to RGB, desaturate, and dim
+    const hex = baseColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+
+    // Convert to grayscale (simple average method)
+    const gray = (r + g + b) / 3;
+
+    // Mix 70% gray with 30% original color for slight color hint
+    const mixedR = Math.round(gray * 0.7 + r * 0.3);
+    const mixedG = Math.round(gray * 0.7 + g * 0.3);
+    const mixedB = Math.round(gray * 0.7 + b * 0.3);
+
+    // Dim by 40%
+    const dimR = Math.round(mixedR * 0.6);
+    const dimG = Math.round(mixedG * 0.6);
+    const dimB = Math.round(mixedB * 0.6);
+
+    return `#${dimR.toString(16).padStart(2, '0')}${dimG.toString(16).padStart(2, '0')}${dimB.toString(16).padStart(2, '0')}`;
+  };
+
   const meshRef = useRef<Mesh>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showControls, setShowControls] = useState(false);
@@ -34,18 +67,24 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
   const [editWidth, setEditWidth] = useState<string>(space.width.toString());
   const [editDepth, setEditDepth] = useState<string>(space.depth.toString());
   const { camera, gl } = useThree();
-  const planeRef = useRef(new Plane(new Vector3(0, 1, 0), 0));
+  // Drag plane at the space's Y level
+  const planeRef = useRef(new Plane(new Vector3(0, 1, 0), -space.position.y));
   const dragOffsetRef = useRef<{ x: number; z: number }>({ x: 0, z: 0 });
+
+  // Update plane position when space Y changes
+  useEffect(() => {
+    planeRef.current.constant = -space.position.y;
+  }, [space.position.y]);
 
   const snapToGrid = (value: number) => {
     return Math.round(value / snapInterval) * snapInterval;
   };
 
-  // Y position is half the height (so base sits on y=0)
+  // Y position is half the height (so base sits on level's Y position)
   const height = 1; // Fixed height for now
   const [targetPosition, setTargetPosition] = useState<[number, number, number]>([
     space.position.x,
-    0,
+    space.position.y,
     space.position.z,
   ]);
 
@@ -62,14 +101,18 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
       return { tension: 300, friction: 20 }; // Normal spring for everything else
     },
     immediate: (key) => key === 'position' && isDragging, // Only position is immediate during drag
+    onRest: () => {
+      // Debug: log final position
+      console.log(`Space ${space.name} final position:`, targetPosition, 'space.position.y:', space.position.y);
+    }
   });
 
   // Sync local position with space prop when not dragging
   useEffect(() => {
     if (!isDragging) {
-      setTargetPosition([space.position.x, 0, space.position.z]);
+      setTargetPosition([space.position.x, space.position.y, space.position.z]);
     }
-  }, [space.position.x, space.position.z, isDragging]);
+  }, [space.position.x, space.position.y, space.position.z, isDragging]);
 
   // Close controls when clicking outside
   useEffect(() => {
@@ -115,11 +158,12 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
         const snappedX = snapToGrid(rawX - xOffset) + xOffset;
         const snappedZ = snapToGrid(rawZ - zOffset) + zOffset;
 
-        setTargetPosition([snappedX, 0, snappedZ]);
+        setTargetPosition([snappedX, space.position.y, snappedZ]);
 
         // Call onMove during drag to update group positions in real-time
         if (onMove) {
-          onMove(snappedX, 0, snappedZ);
+          console.log('🔄 [SPACEBLOCK3D] Dragging:', space.name, '| Y preserved:', space.position.y, '| New position: [', snappedX, space.position.y, snappedZ, ']');
+          onMove(snappedX, space.position.y, snappedZ);
         }
       }
     };
@@ -140,7 +184,9 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
       const snappedX = snapToGrid(targetPosition[0] - xOffset) + xOffset;
       const snappedZ = snapToGrid(targetPosition[2] - zOffset) + zOffset;
 
-      setTargetPosition([snappedX, 0, snappedZ]);
+      const finalPos = [snappedX, space.position.y, snappedZ];
+      console.log('🏁 [SPACEBLOCK3D] Drag released:', space.name, '| Final Y:', space.position.y, '| Final position:', finalPos);
+      setTargetPosition(finalPos as [number, number, number]);
     };
 
     window.addEventListener('pointermove', handlePointerMove);
@@ -240,6 +286,8 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
 
     // Left-click to drag
     if (e.button === 0) {
+      console.log('🖱️ [SPACEBLOCK3D] Clicked to drag existing space:', space.name, '| Current Y:', space.position.y, '| Level:', space.level, '| Full position:', space.position);
+
       // Calculate offset between click point and object center
       const clickPoint = e.point;
       dragOffsetRef.current = {
@@ -307,7 +355,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
       const scaleZ = newDepth / space.depth;
 
       onTransform(
-        { x: targetPosition[0], y: 0, z: targetPosition[2] },
+        { x: targetPosition[0], y: space.position.y, z: targetPosition[2] },
         space.rotation || 0,
         { x: scaleX, y: 1, z: scaleZ }
       );
@@ -335,9 +383,9 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
             renderOrder={-1}
           >
             <meshBasicMaterial
-              color={getSpaceColor(space.type)}
+              color={getDisplayColor(getSpaceColor(space.type))}
               transparent
-              opacity={0.25}
+              opacity={presentationMode || isOnCurrentLevel ? 0.25 : 0.1}
               depthWrite={false}
               side={2} // DoubleSide so it's visible from both sides
             />
@@ -348,7 +396,6 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
       {/* Main space group - this one gets lifted */}
       <animated.group
         position={animatedPosition}
-        position-y={yOffset as any}
         scale={scale as any}
         rotation={[0, ((space.rotation || 0) * Math.PI) / 180, 0]}
       >
@@ -370,11 +417,11 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
         renderOrder={0}
       >
         <animated.meshStandardMaterial
-          color={getSpaceColor(space.type)}
+          color={getDisplayColor(getSpaceColor(space.type))}
           roughness={0.5}
           metalness={0.1}
           transparent
-          opacity={opacity}
+          opacity={presentationMode || isOnCurrentLevel ? opacity : 0.3}
           depthWrite={!isDragging}
         />
       </animated.mesh>
@@ -460,8 +507,8 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
         }}
       >
         {labelMode === 'icon' ? (
-          // Icon mode - show lucide icon
-          <div className="flex items-center justify-center pointer-events-none select-none">
+          // Icon mode - show lucide icon only
+          <div className="flex flex-col items-center gap-1 pointer-events-none select-none">
             {(() => {
               const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
               return IconComponent ? <IconComponent className="w-8 h-8 text-white" /> : null;
@@ -485,7 +532,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelect
               {space.name}
             </div>
             <div
-              className="text-base truncate select-none pointer-events-none"
+              className="text-sm truncate select-none pointer-events-none"
               style={{
                 color: 'white',
               }}

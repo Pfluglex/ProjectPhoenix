@@ -31,6 +31,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
     return [];
   });
   const [snapInterval, setSnapInterval] = useState(5);
+  const [currentLevel, setCurrentLevel] = useState(1); // Building level (1-4)
   const [labelMode, setLabelMode] = useState<'text' | 'icon'>('text');
   const [cameraAngle, setCameraAngle] = useState<45 | 90>(90);
   const [showLoadModal, setShowLoadModal] = useState(false);
@@ -38,6 +39,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
   const [measureMode, setMeasureMode] = useState(false);
   const [measurePoints, setMeasurePoints] = useState<Array<{ x: number; z: number }>>([]);
   const [measurements, setMeasurements] = useState<Array<{ id: string; point1: { x: number; z: number }; point2: { x: number; z: number } }>>([]);
+  const [presentationMode, setPresentationMode] = useState(false);
 
   // Save to localStorage whenever placedSpaces changes
   useEffect(() => {
@@ -53,6 +55,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
   }, [placedSpaces]);
 
   const handleSpaceDrop = (space: SpaceInstance) => {
+    console.log('✅ [CANVASVIEW] Space dropped and added to state:', space.name, '| Position:', space.position, '| Level:', space.level);
     setPlacedSpaces((prev) => [...prev, space]);
   };
 
@@ -87,6 +90,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
       position_y: space.position.y,
       position_z: space.position.z,
       rotation: space.rotation || 0,
+      level: space.level || 1, // Default to level 1 if not set
     }));
 
     // Save to database via API (now includes measurements)
@@ -132,7 +136,8 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
           y: s.position_y,
           z: s.position_z
         },
-        rotation: (s.rotation === 0 || s.rotation === 90 || s.rotation === 180 || s.rotation === 270) ? s.rotation : 0
+        rotation: (s.rotation === 0 || s.rotation === 90 || s.rotation === 180 || s.rotation === 270) ? s.rotation : 0,
+        level: s.level || 1 // Default to level 1 for backward compatibility
       }));
 
       // Load measurements if they exist
@@ -159,11 +164,15 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
   };
 
   const handleSpaceMove = (instanceId: string, x: number, y: number, z: number = 0) => {
+    console.log('🔧 [CANVASVIEW] handleSpaceMove called | instanceId:', instanceId, '| x:', x, '| y:', y, '| z:', z);
+
     // If the moved space is selected and there are multiple selected spaces, move all of them
     if (selectedSpaceIds.has(instanceId) && selectedSpaceIds.size > 1) {
       // Find the space being dragged
       const draggedSpace = placedSpaces.find(s => s.instanceId === instanceId);
       if (!draggedSpace) return;
+
+      console.log('   → Moving multiple spaces (group drag)');
 
       // Calculate the delta from the dragged space's current position
       const deltaX = x - draggedSpace.position.x;
@@ -186,6 +195,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
       );
     } else {
       // Normal single space move
+      console.log('   → Moving single space | Setting position to:', { x, y, z });
       setPlacedSpaces((prev) =>
         prev.map((space) =>
           space.instanceId === instanceId
@@ -298,6 +308,7 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onSpaceTransform={handleSpaceTransform}
         onSpaceDelete={handleSpaceDelete}
         snapInterval={snapInterval}
+        currentLevel={currentLevel}
         labelMode={labelMode}
         cameraAngle={cameraAngle}
         draggedSpace={draggedSpace}
@@ -308,12 +319,15 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         measurements={measurements}
         onMeasureClick={handleMeasureClick}
         onDeleteMeasurement={handleDeleteMeasurement}
+        presentationMode={presentationMode}
       />
       <SpacePalette
         isSidebarExpanded={isSidebarExpanded}
         canvasInfo={canvasState}
         snapInterval={snapInterval}
         onSnapIntervalChange={setSnapInterval}
+        currentLevel={currentLevel}
+        onLevelChange={setCurrentLevel}
         labelMode={labelMode}
         onLabelModeChange={setLabelMode}
         cameraAngle={cameraAngle}
@@ -328,6 +342,8 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onMeasureModeChange={setMeasureMode}
         measurementCount={measurements.length}
         onClearAllMeasurements={handleClearAllMeasurements}
+        presentationMode={presentationMode}
+        onPresentationModeChange={setPresentationMode}
       />
 
       {/* Load Project Modal */}

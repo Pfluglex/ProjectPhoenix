@@ -6,11 +6,12 @@ interface MeasurementProps {
   id: string;
   point1: { x: number; z: number };
   point2: { x: number; z: number };
+  gridY?: number; // Y position of the current level's grid
   isPreview?: boolean;
   onDelete?: (id: string) => void;
 }
 
-export function Measurement({ id, point1, point2, isPreview = false, onDelete }: MeasurementProps) {
+export function Measurement({ id, point1, point2, gridY = 0, isPreview = false, onDelete }: MeasurementProps) {
   const [showDelete, setShowDelete] = useState(false);
 
   const dx = point2.x - point1.x;
@@ -28,7 +29,7 @@ export function Measurement({ id, point1, point2, isPreview = false, onDelete }:
   return (
     <>
       {/* First point marker */}
-      <mesh position={[point1.x, 0.5, point1.z]}>
+      <mesh position={[point1.x, gridY + 0.5, point1.z]}>
         <sphereGeometry args={[1, 16, 16]} />
         <meshBasicMaterial
           color={isPreview ? "#60A5FA" : "#3B82F6"}
@@ -38,7 +39,7 @@ export function Measurement({ id, point1, point2, isPreview = false, onDelete }:
       </mesh>
 
       {/* Second point marker */}
-      <mesh position={[point2.x, 0.5, point2.z]}>
+      <mesh position={[point2.x, gridY + 0.5, point2.z]}>
         <sphereGeometry args={[1, 16, 16]} />
         <meshBasicMaterial
           color={isPreview ? "#60A5FA" : "#3B82F6"}
@@ -54,8 +55,8 @@ export function Measurement({ id, point1, point2, isPreview = false, onDelete }:
             attach="attributes-position"
             count={2}
             array={new Float32Array([
-              point1.x, 0.5, point1.z,
-              point2.x, 0.5, point2.z
+              point1.x, gridY + 0.5, point1.z,
+              point2.x, gridY + 0.5, point2.z
             ])}
             itemSize={3}
           />
@@ -72,7 +73,7 @@ export function Measurement({ id, point1, point2, isPreview = false, onDelete }:
       <Html
         position={[
           (point1.x + point2.x) / 2,
-          2,
+          gridY + 2,
           (point1.z + point2.z) / 2
         ]}
         center
