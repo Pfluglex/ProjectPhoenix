@@ -51,13 +51,17 @@ export const SPACE_TYPE_COLORS = {
   'generic': {
     color: APP_COLORS.secondary.oliveGreen,
     label: 'Generic'
+  },
+  'egress': {
+    color: '#6B7280',
+    label: 'Egress'
   }
 }
 
 /**
  * Get color for a space based on its type
  */
-export function getSpaceColor(type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic'): string {
+export function getSpaceColor(type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress'): string {
   return SPACE_TYPE_COLORS[type]?.color || APP_COLORS.secondary.oliveGreen;
 }
 

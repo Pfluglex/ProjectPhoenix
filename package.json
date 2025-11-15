@@ -17,7 +17,7 @@
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.3",
     "konva": "^9.3.22",
-    "lucide-react": "^0.344.0",
+    "lucide-react": "^0.553.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-konva": "^18.2.10",

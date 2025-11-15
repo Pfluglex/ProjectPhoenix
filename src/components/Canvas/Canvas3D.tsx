@@ -1,10 +1,52 @@
-import { useRef, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { useRef, useState, useEffect } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTheme } from '../System/ThemeManager';
 import type { SpaceInstance } from '../../types';
 import { SpaceBlock3D } from './SpaceBlock3D';
+
+// Component to handle raycasting for drag preview
+function DragPreviewHandler({
+  onPositionUpdate,
+  snapInterval
+}: {
+  onPositionUpdate: (pos: { x: number; y: number; z: number }) => void;
+  snapInterval: number;
+}) {
+  const { camera, gl } = useThree();
+  const raycaster = useRef(new THREE.Raycaster());
+  const groundPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      // Get mouse position in normalized device coordinates
+      const rect = gl.domElement.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // Update raycaster
+      raycaster.current.setFromCamera(new THREE.Vector2(x, y), camera);
+
+      // Find intersection with ground plane
+      const intersection = new THREE.Vector3();
+      raycaster.current.ray.intersectPlane(groundPlane.current, intersection);
+
+      if (intersection) {
+        // Snap to grid
+        const snappedX = Math.round(intersection.x / snapInterval) * snapInterval;
+        const snappedZ = Math.round(intersection.z / snapInterval) * snapInterval;
+
+        onPositionUpdate({ x: snappedX, y: 0, z: snappedZ });
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [camera, gl, snapInterval, onPositionUpdate]);
+
+  return null;
+}
 
 interface Canvas3DProps {
   width?: number;
@@ -17,6 +59,8 @@ interface Canvas3DProps {
   onSpaceDelete?: (instanceId: string) => void;
   snapInterval?: number;
   labelMode?: 'text' | 'icon';
+  cameraAngle?: 45 | 90;
+  draggedSpace?: any;
 }
 
 export function Canvas3D({
@@ -26,13 +70,33 @@ export function Canvas3D({
   onSpaceTransform,
   onSpaceDelete,
   snapInterval = 5,
-  labelMode = 'text'
+  labelMode = 'text',
+  cameraAngle = 90,
+  draggedSpace
 }: Canvas3DProps) {
   const { componentThemes } = useTheme();
   componentThemes.canvasControls.light;
   const [isDraggingFromPalette, setIsDraggingFromPalette] = useState(false);
   const [isDraggingSpace, setIsDraggingSpace] = useState(false);
+  const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
   const controlsRef = useRef<any>(null);
+
+  // Calculate camera position based on angle
+  const getCameraPosition = (angle: 45 | 90): [number, number, number] => {
+    if (angle === 90) {
+      return [0, 200, 0.001]; // Top-down
+    } else {
+      // 45 degree with 30 degree rotation around Y-axis
+      const distance = 150;
+      const height = 150;
+      const yRotation = (30 * Math.PI) / 180; // 30 degrees in radians
+      return [
+        Math.sin(yRotation) * distance,
+        height,
+        Math.cos(yRotation) * distance
+      ];
+    }
+  };
 
   // Handle drop from palette
   const handleDrop = (e: React.DragEvent) => {
@@ -75,7 +139,9 @@ export function Canvas3D({
       onDrop={handleDrop}
       onDragOver={(e) => {
         e.preventDefault();
-        if (!isDraggingFromPalette) {
+
+        // Set dragging state
+        if (!isDraggingFromPalette && draggedSpace) {
           setIsDraggingFromPalette(true);
         }
       }}
@@ -95,11 +161,28 @@ export function Canvas3D({
 
       {/* Three.js Canvas */}
       <Canvas
-        camera={{
-          position: [0, 200, 0.001], // Straight down (90 degrees)
-          fov: 50,
-        }}
+        key={cameraAngle} // Re-mount canvas when angle changes for instant switch
+        orthographic={cameraAngle === 90} // Use orthographic for top-down, perspective for isometric
+        camera={
+          cameraAngle === 90
+            ? {
+                position: getCameraPosition(cameraAngle),
+                zoom: 2, // Adjust zoom level for orthographic
+              }
+            : {
+                position: getCameraPosition(cameraAngle),
+                fov: 50,
+              }
+        }
       >
+        {/* Drag preview position tracker */}
+        {isDraggingFromPalette && draggedSpace && (
+          <DragPreviewHandler
+            onPositionUpdate={setPreviewPosition}
+            snapInterval={snapInterval}
+          />
+        )}
+
         {/* Lighting */}
         <ambientLight intensity={1.2} />
         <directionalLight position={[50, 100, 50]} intensity={1.5} castShadow />
@@ -192,23 +275,38 @@ export function Canvas3D({
           />
         ))}
 
+        {/* Drag Preview - show while dragging from palette */}
+        {isDraggingFromPalette && draggedSpace && (
+          <SpaceBlock3D
+            key="drag-preview"
+            space={{
+              ...draggedSpace,
+              instanceId: 'preview',
+              templateId: draggedSpace.id,
+              position: previewPosition,
+              rotation: 0,
+            }}
+            snapInterval={snapInterval}
+            labelMode={labelMode}
+          />
+        )}
+
         {/* Camera Controls */}
         <OrbitControls
           ref={controlsRef}
-          enableRotate={false} // Disable rotation completely
+          enableRotate={false} // Completely disable rotation
           enablePan={!isDraggingSpace} // Disable pan when dragging a space
           enableZoom={true}
           enableDamping={true}
-          dampingFactor={0.15} // Lower = snappier (default is 0.05)
-          panSpeed={1.5} // Higher = faster panning
+          dampingFactor={0.15}
+          panSpeed={1.5}
           minDistance={100}
           maxDistance={500}
-          minPolarAngle={0} // Lock at 90 degrees (straight down)
-          maxPolarAngle={0} // Lock at 90 degrees (straight down)
+          target={[0, 0, 0]} // Always look at origin
           mouseButtons={{
-            LEFT: THREE.MOUSE.PAN,      // Pan with left click
-            MIDDLE: THREE.MOUSE.DOLLY,  // Zoom with middle mouse
-            RIGHT: THREE.MOUSE.PAN      // Right click also pans
+            LEFT: THREE.MOUSE.PAN,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.PAN
           }}
         />
       </Canvas>

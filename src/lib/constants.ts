@@ -1,90 +1,97 @@
-import { GRID_MODULE, SNAP_SIZES } from '../types';
+/**
+ * GLOBAL CONFIGURATION FILE
+ *
+ * This file contains ALL configurable constants for Project Phoenix.
+ * To add new space types or icons, just edit this file - everything else updates automatically!
+ *
+ * ADDING A NEW SPACE TYPE:
+ * 1. Add to SPACE_TYPES object below with: id, label, color, description
+ * 2. That's it! The type will appear everywhere (modals, filters, palette, etc.)
+ *
+ * ADDING A NEW ICON:
+ * 1. Add the Lucide icon name to COMMON_SPACE_ICONS array
+ * 2. That's it! The icon will appear in Add/Edit space modals
+ */
 
-// Grid Configuration
+// ============================================
+// GRID CONFIGURATION
+// ============================================
 export const GRID_CONFIG = {
-  // Base grid module (1 foot)
-  baseModule: GRID_MODULE,
+  defaultSnap: 5, // feet
+  snapSizes: [1, 2.5, 5, 7.5, 10, 15, 20, 30] // available snap intervals
+} as const;
 
-  // Available snap increments (in feet)
-  snapSizes: SNAP_SIZES,
-
-  // Default snap size for placement (10 feet is common in architecture)
-  defaultSnap: 10,
-
-  // Grid visibility toggles
-  showBaseGrid: false, // Show 1' grid lines
-  showSnapGrid: true, // Show snap increment lines (5', 10', etc.)
-
-  // Visual settings
-  baseGridOpacity: 0.1,
-  snapGridOpacity: 0.3,
-  baseGridColor: '#E5E7EB', // gray-200
-  snapGridColor: '#9CA3AF', // gray-400
-};
-
-// Project Configuration
-export const PROJECT_CONFIG = {
-  // Budget target
-  budgetSF: 85000,
-
-  // Default ceiling height
-  defaultCeilingHeight: 12, // feet
-
-  // Canvas bounds (in feet) - defines the buildable area
-  canvasWidth: 500,
-  canvasHeight: 500,
-};
-
-// Visual Configuration
-export const VISUAL_CONFIG = {
-  // 2D Canvas
-  canvas2D: {
-    pixelsPerFoot: 2, // Scale factor for 2D view
-    spaceStrokeWidth: 2,
-    spaceStrokeColor: '#000000',
-    selectedStrokeColor: '#FFFFFF',
-    selectedStrokeWidth: 3,
+// ============================================
+// SPACE TYPE CONFIGURATION
+// ============================================
+// Define all space types in ONE place - add new types here!
+export const SPACE_TYPES = {
+  technology: {
+    id: 'technology',
+    label: 'Technology',
+    color: '#003C71', // darkBlue
+    description: 'Computer labs, cyber security, audio visual'
   },
-
-  // 3D View
-  canvas3D: {
-    cameraPosition: [150, 100, 150] as [number, number, number],
-    cameraFOV: 50,
-    floorHeight: 1.5, // multiplier for floor-to-floor height
+  trades: {
+    id: 'trades',
+    label: 'Trades',
+    color: '#00A9E0', // skyBlue
+    description: 'Construction, aviation, culinary, automotive'
   },
-
-  // Space labels
-  labels: {
-    fontSize2D: 14,
-    fontSize3D: 2.5,
-    showDimensions: true,
-    showSF: true,
+  band: {
+    id: 'band',
+    label: 'Band',
+    color: '#9A3324', // brick
+    description: 'Band hall, choir, music, dressing rooms'
   },
-};
-
-// Interaction Configuration
-export const INTERACTION_CONFIG = {
-  // Drag sensitivity
-  dragThreshold: 5, // pixels
-
-  // Rotation
-  rotationStep: 90, // degrees
-
-  // Keyboard shortcuts
-  shortcuts: {
-    rotate: 'r',
-    delete: 'Delete',
-    duplicate: 'd',
-    escape: 'Escape',
+  systems: {
+    id: 'systems',
+    label: 'Systems',
+    color: '#B5BD00', // chartreuse
+    description: 'PLC support, control rooms, server rooms'
   },
-};
+  admin: {
+    id: 'admin',
+    label: 'Admin',
+    color: '#f16555', // salmon
+    description: 'Offices, conference rooms, meeting spaces'
+  },
+  service: {
+    id: 'service',
+    label: 'Service',
+    color: '#F2A900', // orange
+    description: 'Storage, mechanical, electrical, janitorial'
+  },
+  generic: {
+    id: 'generic',
+    label: 'Generic',
+    color: '#67823A', // oliveGreen
+    description: 'Career centers, circulation, commons'
+  },
+  egress: {
+    id: 'egress',
+    label: 'Egress',
+    color: '#6B7280', // gray
+    description: 'Emergency exits, corridors, stairs, exit routes'
+  }
+} as const;
 
-// Export all configs as a single object
-export const APP_CONFIG = {
-  grid: GRID_CONFIG,
-  project: PROJECT_CONFIG,
-  visual: VISUAL_CONFIG,
-  interaction: INTERACTION_CONFIG,
-};
+// Extract type IDs as a union type
+export type SpaceTypeId = keyof typeof SPACE_TYPES;
 
-export default APP_CONFIG;
+// Helper to get all type IDs as an array
+export const SPACE_TYPE_IDS = Object.keys(SPACE_TYPES) as SpaceTypeId[];
+
+// ============================================
+// ICON CONFIGURATION
+// ============================================
+// Common Lucide icons for spaces - add new icons here!
+export const COMMON_SPACE_ICONS = [
+  'Square', 'Circle', 'Triangle', 'Laptop', 'Monitor', 'Computer',
+  'Shield', 'Video', 'Stethoscope', 'Cross', 'Shirt', 'ChefHat',
+  'HardHat', 'Anchor', 'Hammer', 'Plane', 'Wrench', 'Package',
+  'Music', 'Archive', 'Book', 'Lightbulb', 'Beaker', 'Microscope',
+  'Palette', 'Camera', 'Tv', 'Speaker', 'Headphones', 'Users',
+  'User', 'Briefcase', 'Coffee', 'Home', 'Building', 'School',
+  'Bath', 'Droplet', 'Footprints', 'MoveVertical', 'Toilet'
+] as const;

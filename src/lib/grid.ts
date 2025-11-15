@@ -34,7 +34,7 @@ export class GridManager {
    * Set snap size
    */
   setSnapSize(size: number) {
-    if (GRID_CONFIG.snapSizes.includes(size)) {
+    if ((GRID_CONFIG.snapSizes as readonly number[]).includes(size)) {
       this.snapSize = size;
     }
   }

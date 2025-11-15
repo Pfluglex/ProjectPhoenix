@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { getSpaceColor, SPACE_TYPE_COLORS } from '../System/ThemeManager';
+import { COMMON_SPACE_ICONS } from '../../lib/constants';
 import type { SpaceDefinition } from '../../types';
 
 interface AddSpaceModalProps {
@@ -10,24 +11,13 @@ interface AddSpaceModalProps {
   onSave: (space: Omit<SpaceDefinition, 'id'>) => void;
 }
 
-
-// Common Lucide icons for spaces
-const COMMON_ICONS = [
-  'Square', 'Circle', 'Triangle', 'Laptop', 'Monitor', 'Computer',
-  'Shield', 'Video', 'Stethoscope', 'Cross', 'Shirt', 'ChefHat',
-  'HardHat', 'Anchor', 'Hammer', 'Plane', 'Wrench', 'Package',
-  'Music', 'Archive', 'Book', 'Lightbulb', 'Beaker', 'Microscope',
-  'Palette', 'Camera', 'Tv', 'Speaker', 'Headphones', 'Users',
-  'User', 'Briefcase', 'Coffee', 'Home', 'Building', 'School'
-];
-
 export function AddSpaceModal({ isOpen, onClose, onSave }: AddSpaceModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     width: '',
     depth: '',
     height: '12',
-    type: 'technology' as 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic',
+    type: 'technology' as 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress',
     icon: 'Square'
   });
 
@@ -200,7 +190,7 @@ export function AddSpaceModal({ isOpen, onClose, onSave }: AddSpaceModalProps) {
                 Icon *
               </label>
               <div className="grid grid-cols-8 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
-                {COMMON_ICONS.map((iconName) => {
+                {COMMON_SPACE_ICONS.map((iconName) => {
                   const Icon = (LucideIcons as any)[iconName];
                   return (
                     <button

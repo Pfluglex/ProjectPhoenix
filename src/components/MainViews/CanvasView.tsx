@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Canvas3D } from '../Canvas/Canvas3D';
 import { SpacePalette } from '../Canvas/SpacePalette';
 import { LoadProjectModal } from '../Canvas/LoadProjectModal';
@@ -9,15 +9,44 @@ interface CanvasViewProps {
   isSidebarExpanded: boolean;
 }
 
+const TEMP_PROJECT_KEY = 'phoenix_temp_project';
+
 export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
   const [canvasState, setCanvasState] = useState({
     position: { x: 0, y: 0 },
     zoom: 1.5,
   });
-  const [placedSpaces, setPlacedSpaces] = useState<SpaceInstance[]>([]);
+  const [draggedSpace, setDraggedSpace] = useState<any>(null); // Track space being dragged from palette
+  const [placedSpaces, setPlacedSpaces] = useState<SpaceInstance[]>(() => {
+    // Load from localStorage on initial mount
+    try {
+      const saved = localStorage.getItem(TEMP_PROJECT_KEY);
+      if (saved) {
+        const data = JSON.parse(saved);
+        return data.spaces || [];
+      }
+    } catch (error) {
+      console.error('Error loading temp project:', error);
+    }
+    return [];
+  });
   const [snapInterval, setSnapInterval] = useState(5);
   const [labelMode, setLabelMode] = useState<'text' | 'icon'>('text');
+  const [cameraAngle, setCameraAngle] = useState<45 | 90>(90);
   const [showLoadModal, setShowLoadModal] = useState(false);
+
+  // Save to localStorage whenever placedSpaces changes
+  useEffect(() => {
+    try {
+      const tempProject = {
+        spaces: placedSpaces,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem(TEMP_PROJECT_KEY, JSON.stringify(tempProject));
+    } catch (error) {
+      console.error('Error saving temp project:', error);
+    }
+  }, [placedSpaces]);
 
   const handleSpaceDrop = (space: SpaceInstance) => {
     setPlacedSpaces((prev) => [...prev, space]);
@@ -162,6 +191,8 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onSpaceDelete={handleSpaceDelete}
         snapInterval={snapInterval}
         labelMode={labelMode}
+        cameraAngle={cameraAngle}
+        draggedSpace={draggedSpace}
       />
       <SpacePalette
         isSidebarExpanded={isSidebarExpanded}
@@ -170,10 +201,14 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onSnapIntervalChange={setSnapInterval}
         labelMode={labelMode}
         onLabelModeChange={setLabelMode}
+        cameraAngle={cameraAngle}
+        onCameraAngleChange={setCameraAngle}
         placedSpaces={placedSpaces}
         onSaveProject={handleSaveProject}
         onLoadProject={() => setShowLoadModal(true)}
         onClearCanvas={handleClearCanvas}
+        onDragStart={setDraggedSpace}
+        onDragEnd={() => setDraggedSpace(null)}
       />
 
       {/* Load Project Modal */}

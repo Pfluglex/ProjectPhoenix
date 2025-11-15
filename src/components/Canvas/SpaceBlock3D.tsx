@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, useEffect } from 'react';
-import { Mesh, Shape, ExtrudeGeometry, Raycaster, Plane, Vector3, Vector2 } from 'three';
+import { Mesh, Shape, ExtrudeGeometry, ShapeGeometry, Raycaster, Plane, Vector3, Vector2 } from 'three';
 import { Html } from '@react-three/drei';
 import type { SpaceInstance } from '../../types';
 import { ThreeEvent, useThree } from '@react-three/fiber';
@@ -49,13 +49,18 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
   ]);
 
   // Animated position with spring physics
-  const { position, yOffset } = useSpring({
+  const { position, opacity, yOffset, scale } = useSpring({
     position: targetPosition,
-    yOffset: isDragging ? 5 : (hovered ? 2 : 0), // Subtle hover, more lift when grabbed
-    config: isDragging
-      ? { tension: 500, friction: 15 } // Super responsive during drag
-      : { tension: 300, friction: 20 }, // Fast and bouncy when snapping to grid
-    immediate: isDragging, // No interpolation during drag for instant response
+    opacity: isDragging ? 0.3 : 1, // Ghosted when dragging
+    yOffset: isDragging ? 2 : 0, // Small pop up when grabbed for haptic feel
+    scale: isDragging ? 0.9 : 1, // Shrink slightly when grabbed
+    config: (key) => {
+      if (key === 'yOffset' || key === 'scale') {
+        return { tension: 800, friction: 25 }; // Snappy pop for haptic feel
+      }
+      return { tension: 300, friction: 20 }; // Normal spring for everything else
+    },
+    immediate: (key) => key === 'position' && isDragging, // Only position is immediate during drag
   });
 
   // Sync local position with space prop when not dragging
@@ -95,12 +100,21 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
       raycaster.ray.intersectPlane(planeRef.current, intersection);
 
       if (intersection) {
+        // Calculate offset for spaces with odd number of snap intervals
+        const xIntervals = space.width / snapInterval;
+        const zIntervals = space.depth / snapInterval;
+        const xOffset = (xIntervals % 2 !== 0) ? snapInterval / 2 : 0;
+        const zOffset = (zIntervals % 2 !== 0) ? snapInterval / 2 : 0;
+
         // Apply the drag offset to maintain relative position
-        setTargetPosition([
-          intersection.x - dragOffsetRef.current.x,
-          0,
-          intersection.z - dragOffsetRef.current.z
-        ]);
+        const rawX = intersection.x - dragOffsetRef.current.x;
+        const rawZ = intersection.z - dragOffsetRef.current.z;
+
+        // Snap while dragging
+        const snappedX = snapToGrid(rawX - xOffset) + xOffset;
+        const snappedZ = snapToGrid(rawZ - zOffset) + zOffset;
+
+        setTargetPosition([snappedX, 0, snappedZ]);
       }
     };
 
@@ -180,6 +194,36 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
     return new ExtrudeGeometry(shape, extrudeSettings);
   }, [space.width, space.depth, height]);
 
+  // Calculate actual geometry height including bevels
+  const minDimension = Math.min(space.width, space.depth);
+  const bevelSize = minDimension <= 15 ? Math.max(1, minDimension * 0.15) : 5;
+  const totalHeight = height + (bevelSize * 2); // height + bevel on both ends
+
+  // Create flat shadow geometry (just the 2D rounded rectangle shape)
+  const shadowGeometry = useMemo(() => {
+    // Use full dimensions for shadow (including bevel area)
+    const width = space.width;
+    const depth = space.depth;
+    const radius = Math.max(0.5, bevelSize * 0.4);
+
+    // Create a rounded rectangle shape
+    const shape = new Shape();
+    const x = -width / 2;
+    const y = -depth / 2;
+
+    shape.moveTo(x, y + radius);
+    shape.lineTo(x, y + depth - radius);
+    shape.quadraticCurveTo(x, y + depth, x + radius, y + depth);
+    shape.lineTo(x + width - radius, y + depth);
+    shape.quadraticCurveTo(x + width, y + depth, x + width, y + depth - radius);
+    shape.lineTo(x + width, y + radius);
+    shape.quadraticCurveTo(x + width, y, x + width - radius, y);
+    shape.lineTo(x + radius, y);
+    shape.quadraticCurveTo(x, y, x, y + radius);
+
+    return new ShapeGeometry(shape);
+  }, [space.width, space.depth, bevelSize]);
+
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
 
@@ -213,13 +257,14 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
   };
 
   const handleRotate = () => {
-    // Rotate 90 degrees (convert to radians)
-    const newRotation = ((space.rotation || 0) + Math.PI / 2) % (Math.PI * 2);
+    // Rotate 90 degrees (rotation is stored in degrees: 0, 90, 180, 270)
+    const currentRotation = space.rotation || 0;
+    const newRotation = (currentRotation + 90) % 360;
 
     if (onTransform) {
       onTransform(
         { x: targetPosition[0], y: targetPosition[1], z: targetPosition[2] },
-        newRotation,
+        newRotation as 0 | 90 | 180 | 270,
         { x: 1, y: 1, z: 1 }
       );
     }
@@ -269,20 +314,45 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
     }
   };
 
-  // Combine position with yOffset
   const animatedPosition = position.to((x, y, z) => [x, y, z]) as any;
 
   return (
-    <animated.group
-      position={animatedPosition}
-      position-y={yOffset as any}
-      rotation={[0, space.rotation || 0, 0]}
-    >
+    <>
+      {/* Shadow/ghost outline on ground when dragging - positioned independently */}
+      {isDragging && (
+        <animated.group position={animatedPosition} rotation={[0, ((space.rotation || 0) * Math.PI) / 180, 0]}>
+          <mesh
+            geometry={shadowGeometry}
+            rotation={[-Math.PI / 2, 0, 0]} // Rotate to lie flat on XZ plane
+            position={[0, 0.02, 0]} // Slightly above ground to prevent z-fighting
+            renderOrder={-1}
+          >
+            <meshBasicMaterial
+              color={getSpaceColor(space.type)}
+              transparent
+              opacity={0.25}
+              depthWrite={false}
+              side={2} // DoubleSide so it's visible from both sides
+            />
+          </mesh>
+        </animated.group>
+      )}
+
+      {/* Main space group - this one gets lifted */}
+      <animated.group
+        position={animatedPosition}
+        position-y={yOffset as any}
+        scale={scale as any}
+        rotation={[0, ((space.rotation || 0) * Math.PI) / 180, 0]}
+      >
+
+
       {/* The 3D extruded rounded rectangle */}
-      <mesh
+      <animated.mesh
         ref={meshRef}
         geometry={geometry}
         rotation={[-Math.PI / 2, 0, 0]} // Rotate to stand upright
+        position={[0, totalHeight / 2, 0]} // Lift by half total height (including bevels) so base sits on ground
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
         onPointerDown={handlePointerDown}
@@ -292,13 +362,17 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
         }}
         castShadow
         receiveShadow
+        renderOrder={0}
       >
-        <meshStandardMaterial
+        <animated.meshStandardMaterial
           color={getSpaceColor(space.type)}
           roughness={0.5}
           metalness={0.1}
+          transparent
+          opacity={opacity}
+          depthWrite={!isDragging}
         />
-      </mesh>
+      </animated.mesh>
 
       {/* Controls (appears on right-click) */}
       {(showControls || controlsHovered) && !isDragging && (
@@ -334,6 +408,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
         sprite // Makes it always face the camera (billboard)
         scale={Math.min(10, Math.max(6, Math.min(space.width, space.depth) / 4))} // Scale from 6-10 based on smallest dimension
         zIndexRange={[0, 0]} // Keep z-index low so UI elements appear above
+        pointerEvents="none"
         style={{
           pointerEvents: 'none',
           userSelect: 'none',
@@ -342,7 +417,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
       >
         {labelMode === 'icon' ? (
           // Icon mode - show lucide icon
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center pointer-events-none select-none">
             {(() => {
               const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
               return IconComponent ? <IconComponent className="w-8 h-8 text-white" /> : null;
@@ -351,14 +426,14 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
         ) : (
           // Text mode - show name and dimensions
           <div
-            className="px-3 py-2 text-center"
+            className="px-3 py-2 text-center select-none pointer-events-none"
             style={{
               maxWidth: `${Math.min(space.width, space.depth) * 10}px`,
               overflow: 'hidden',
             }}
           >
             <div
-              className="text-lg font-bold truncate"
+              className="text-lg font-bold truncate select-none pointer-events-none"
               style={{
                 color: 'white',
               }}
@@ -366,7 +441,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
               {space.name}
             </div>
             <div
-              className="text-base truncate"
+              className="text-base truncate select-none pointer-events-none"
               style={{
                 color: 'white',
               }}
@@ -478,6 +553,7 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
           </div>
         </Html>
       )}
-    </animated.group>
+      </animated.group>
+    </>
   );
 }

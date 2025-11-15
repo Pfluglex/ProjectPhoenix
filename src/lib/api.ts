@@ -18,7 +18,7 @@ export interface ProjectSpace {
   depth: number;
   height: number;
   icon: string;
-  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic';
+  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress';
   position_x: number;
   position_y: number;
   position_z: number;
@@ -135,7 +135,7 @@ export interface SpaceDefinition {
   width: number;
   depth: number;
   height: number;
-  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic';
+  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress';
   icon: string;
 }
 
@@ -188,6 +188,9 @@ export async function getSpace(spaceId: string): Promise<{ success: boolean; spa
  */
 export async function createSpace(space: SpaceDefinition): Promise<{ success: boolean; space_id?: string; error?: string }> {
   try {
+    console.log('Creating space:', space);
+    console.log('API URL:', `${API_BASE_URL}/spaces.php?action=create`);
+
     const response = await fetch(`${API_BASE_URL}/spaces.php?action=create`, {
       method: 'POST',
       headers: {
@@ -196,7 +199,23 @@ export async function createSpace(space: SpaceDefinition): Promise<{ success: bo
       body: JSON.stringify(space)
     });
 
-    const data = await response.json();
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers.get('content-type'));
+
+    // Get the raw text first
+    const text = await response.text();
+    console.log('Response text:', text);
+
+    // Try to parse as JSON
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error('Failed to parse JSON:', e);
+      return { success: false, error: `Server returned invalid JSON. Response: ${text.substring(0, 200)}` };
+    }
+
+    console.log('Response data:', data);
 
     if (!response.ok) {
       return { success: false, error: data.error || 'Failed to create space' };
@@ -205,7 +224,7 @@ export async function createSpace(space: SpaceDefinition): Promise<{ success: bo
     return { success: true, space_id: data.space_id };
   } catch (error) {
     console.error('Error creating space:', error);
-    return { success: false, error: 'Network error while creating space' };
+    return { success: false, error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}` };
   }
 }
 

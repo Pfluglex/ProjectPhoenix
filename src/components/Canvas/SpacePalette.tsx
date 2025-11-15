@@ -15,14 +15,18 @@ interface SpacePaletteProps {
   onSnapIntervalChange?: (interval: number) => void;
   labelMode?: 'text' | 'icon';
   onLabelModeChange?: (mode: 'text' | 'icon') => void;
+  cameraAngle?: 45 | 90;
+  onCameraAngleChange?: (angle: 45 | 90) => void;
   placedSpaces?: any[];
   onSaveProject?: () => void;
   onClearCanvas?: () => void;
   onLoadProject?: (projectId?: string) => void;
+  onDragStart?: (space: any) => void;
+  onDragEnd?: () => void;
 }
 
-export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange, placedSpaces = [], onSaveProject, onClearCanvas, onLoadProject }: SpacePaletteProps) {
-  const { componentThemes } = useTheme();
+export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange, cameraAngle = 90, onCameraAngleChange, placedSpaces = [], onSaveProject, onClearCanvas, onLoadProject, onDragStart, onDragEnd }: SpacePaletteProps) {
+  const { componentThemes, colors } = useTheme();
   const theme = componentThemes.canvasPalette.light;
   const [spaces, setSpaces] = useState<SpaceDefinition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,9 +136,164 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
           </button>
         </div>
 
+        {/* Controls - only show in Library mode */}
+        {activePanel === 'library' && (
+          <div className="p-4 space-y-3">
+            {/* Camera Angle and Label Style Toggles - Horizontal Stack */}
+            <div className="flex gap-3">
+              {/* Camera Angle Toggle */}
+              <div className="flex-1">
+                <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
+                  <span>Camera</span>
+                  <span className="text-gray-500">{cameraAngle}°</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600">Top</span>
+                  <button
+                    onClick={() => onCameraAngleChange?.(cameraAngle === 90 ? 45 : 90)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      cameraAngle === 45 ? 'bg-blue-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        cameraAngle === 45 ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                  <span className="text-xs text-gray-600">Iso</span>
+                </div>
+              </div>
+
+              {/* Label Style Toggle */}
+              <div className="flex-1">
+                <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
+                  <span>Labels</span>
+                  <span className="text-gray-500">{labelMode === 'text' ? 'Text' : 'Icon'}</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600">Text</span>
+                  <button
+                    onClick={() => onLabelModeChange?.(labelMode === 'text' ? 'icon' : 'text')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      labelMode === 'icon' ? 'bg-blue-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        labelMode === 'icon' ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                  <span className="text-xs text-gray-600">Icon</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Snap Interval */}
+            <div>
+              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+                <span>Snap to Grid</span>
+                <span className="text-gray-500">{snapInterval}'</span>
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="7"
+                step="1"
+                value={[1, 2.5, 5, 7.5, 10, 15, 20, 30].indexOf(snapInterval)}
+                onChange={(e) => {
+                  const snapValues = [1, 2.5, 5, 7.5, 10, 15, 20, 30];
+                  onSnapIntervalChange?.(snapValues[Number(e.target.value)]);
+                }}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-1 px-1">
+                <span>1'</span>
+                <span>2.5'</span>
+                <span>5'</span>
+                <span>7.5'</span>
+                <span>10'</span>
+                <span>15'</span>
+                <span>20'</span>
+                <span>30'</span>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200"></div>
+
+            {/* Save, Load, and Clear Buttons - Horizontal Stack */}
+            <div className="flex gap-2">
+              <button
+                onClick={onSaveProject}
+                disabled={placedSpaces.length === 0}
+                className="flex-1 text-white px-3 py-2 rounded-lg text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                style={{
+                  backgroundColor: placedSpaces.length === 0 ? undefined : colors.secondary.darkBlue,
+                }}
+                onMouseEnter={(e) => {
+                  if (placedSpaces.length > 0) {
+                    e.currentTarget.style.backgroundColor = colors.secondary.darkBlue;
+                    e.currentTarget.style.opacity = '0.85';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (placedSpaces.length > 0) {
+                    e.currentTarget.style.backgroundColor = colors.secondary.darkBlue;
+                    e.currentTarget.style.opacity = '1';
+                  }
+                }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => onLoadProject?.()}
+                className="flex-1 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: colors.secondary.oliveGreen,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '0.85';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                }}
+              >
+                Load
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to clear the canvas? This cannot be undone.')) {
+                    onClearCanvas?.();
+                  }
+                }}
+                disabled={placedSpaces.length === 0}
+                className="flex-1 text-white px-3 py-2 rounded-lg text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                style={{
+                  backgroundColor: placedSpaces.length === 0 ? undefined : colors.primary.brick,
+                }}
+                onMouseEnter={(e) => {
+                  if (placedSpaces.length > 0) {
+                    e.currentTarget.style.backgroundColor = colors.primary.brick;
+                    e.currentTarget.style.opacity = '0.85';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (placedSpaces.length > 0) {
+                    e.currentTarget.style.backgroundColor = colors.primary.brick;
+                    e.currentTarget.style.opacity = '1';
+                  }
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Search - only show in Library mode */}
         {activePanel === 'library' && (
-          <div className="p-4">
+          <div className="px-4 pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -167,7 +326,7 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                     </span>
                   </div>
                   <div className="px-1.5 pb-1.5 pt-1 space-y-0.5">
-                    {Array.from({ length: 5 }).map((_, index) => {
+                    {Array.from({ length: 3 }).map((_, index) => {
                       const space = recentSpaces[index];
                       return space ? (
                         <motion.div
@@ -179,6 +338,10 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                           onDragStart={(e: any) => {
                             e.dataTransfer.setData('application/json', JSON.stringify(space));
                             e.dataTransfer.effectAllowed = 'copy';
+                            onDragStart?.(space);
+                          }}
+                          onDragEnd={() => {
+                            onDragEnd?.();
                           }}
                         >
                           <div className="flex items-center gap-2 pointer-events-none">
@@ -265,11 +428,17 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                                 e.dataTransfer.setData('application/json', JSON.stringify(space));
                                 e.dataTransfer.effectAllowed = 'copy';
 
-                                // Add to recents (avoid duplicates, keep max 5)
+                                // Notify parent about drag start
+                                onDragStart?.(space);
+
+                                // Add to recents (avoid duplicates, keep max 3)
                                 setRecentSpaces((prev) => {
                                   const filtered = prev.filter(s => s.id !== space.id);
-                                  return [space, ...filtered].slice(0, 5);
+                                  return [space, ...filtered].slice(0, 3);
                                 });
+                              }}
+                              onDragEnd={() => {
+                                onDragEnd?.();
                               }}
                             >
                               <div className="flex items-center gap-2 pointer-events-none">
@@ -326,27 +495,51 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                 </div>
               ) : (
                 <>
-                  <div className="space-y-2 mb-3">
-                    {placedSpaces.map((space) => (
-                      <div key={space.instanceId} className="flex items-center gap-2 text-xs">
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: getSpaceColor(space.type) }}
-                        >
-                          {(() => {
-                            const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
-                            return IconComponent ? <IconComponent className="w-3 h-3 text-white" /> : null;
-                          })()}
+                  {/* Group spaces by type */}
+                  {Object.entries(
+                    placedSpaces.reduce((acc, space) => {
+                      if (!acc[space.type]) {
+                        acc[space.type] = [];
+                      }
+                      acc[space.type].push(space);
+                      return acc;
+                    }, {} as Record<string, typeof placedSpaces>)
+                  ).map(([type, typeSpaces]) => {
+                    const typeTotal = typeSpaces.reduce((sum, space) => sum + (space.width * space.depth), 0);
+                    return (
+                      <div key={type} className="mb-3">
+                        <div className="flex items-center justify-between text-xs font-semibold text-gray-700 mb-1">
+                          <span className="capitalize">
+                            {SPACE_TYPE_COLORS[type as keyof typeof SPACE_TYPE_COLORS]?.label || type} ({typeSpaces.length})
+                          </span>
+                          <span className="text-[10px] font-medium" style={{ color: getSpaceColor(type) }}>
+                            {typeTotal.toLocaleString()} sf
+                          </span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-gray-900 truncate font-medium">{space.name}</p>
+                        <div className="space-y-1">
+                          {typeSpaces.map((space) => (
+                            <div key={space.instanceId} className="flex items-center gap-2 text-xs">
+                              <div
+                                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: getSpaceColor(space.type) }}
+                              >
+                                {(() => {
+                                  const IconComponent = (LucideIcons as any)[space.icon || 'Square'];
+                                  return IconComponent ? <IconComponent className="w-3 h-3 text-white" /> : null;
+                                })()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-gray-900 truncate font-medium">{space.name}</p>
+                              </div>
+                              <span className="text-gray-600 text-[10px]">
+                                {(space.width * space.depth).toLocaleString()} sf
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                        <span className="text-gray-600 text-[10px]">
-                          {(space.width * space.depth).toLocaleString()} sf
-                        </span>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
 
                   <div className="pt-3 border-t border-gray-200">
                     <div className="flex justify-between items-center">
@@ -358,90 +551,6 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                   </div>
                 </>
               )}
-            </div>
-
-            {/* Save, Load, and Clear Buttons */}
-            <div className="space-y-2">
-              <button
-                onClick={onSaveProject}
-                disabled={placedSpaces.length === 0}
-                className="w-full bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                Save Project
-              </button>
-              <button
-                onClick={() => onLoadProject?.()}
-                className="w-full bg-green-500 text-white px-3 py-2 rounded-lg hover:bg-green-600 text-sm font-medium"
-              >
-                Load Project
-              </button>
-              <button
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to clear the canvas? This cannot be undone.')) {
-                    onClearCanvas?.();
-                  }
-                }}
-                disabled={placedSpaces.length === 0}
-                className="w-full bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                Clear Canvas
-              </button>
-            </div>
-
-            <div className="border-t border-gray-200 pt-4"></div>
-
-            {/* Tag Display Toggle */}
-            <div>
-              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
-                <span>Label Style</span>
-                <span className="text-gray-500">{labelMode === 'text' ? 'Text' : 'Icon'}</span>
-              </label>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-600">Text</span>
-                <button
-                  onClick={() => onLabelModeChange?.(labelMode === 'text' ? 'icon' : 'text')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    labelMode === 'icon' ? 'bg-blue-500' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      labelMode === 'icon' ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-                <span className="text-xs text-gray-600">Icon</span>
-              </div>
-            </div>
-
-            {/* Snap Interval */}
-            <div>
-              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
-                <span>Snap to Grid</span>
-                <span className="text-gray-500">{snapInterval}'</span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="7"
-                step="1"
-                value={[1, 2.5, 5, 7.5, 10, 15, 20, 30].indexOf(snapInterval)}
-                onChange={(e) => {
-                  const snapValues = [1, 2.5, 5, 7.5, 10, 15, 20, 30];
-                  onSnapIntervalChange?.(snapValues[Number(e.target.value)]);
-                }}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-1 px-1">
-                <span>1'</span>
-                <span>2.5'</span>
-                <span>5'</span>
-                <span>7.5'</span>
-                <span>10'</span>
-                <span>15'</span>
-                <span>20'</span>
-                <span>30'</span>
-              </div>
             </div>
         </div>
       )}

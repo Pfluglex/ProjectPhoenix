@@ -23,7 +23,7 @@ export interface Space3D {
   // Rotation (0, 90, 180, 270)
   rotation: 0 | 90 | 180 | 270;
 
-  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic';
+  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress';
   icon: string; // Lucide icon name
 }
 
@@ -47,7 +47,7 @@ export interface SpaceDefinition {
   width: number;
   depth: number;
   height: number;
-  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic';
+  type: 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress';
   icon: string; // Lucide icon name
 }
 
