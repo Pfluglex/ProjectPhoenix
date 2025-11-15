@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Ruler } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { listSpaces, type SpaceDefinition } from '../../lib/api';
 import { useTheme, getSpaceColor, SPACE_TYPE_COLORS } from '../System/ThemeManager';
@@ -23,9 +23,13 @@ interface SpacePaletteProps {
   onLoadProject?: (projectId?: string) => void;
   onDragStart?: (space: any) => void;
   onDragEnd?: () => void;
+  measureMode?: boolean;
+  onMeasureModeChange?: (enabled: boolean) => void;
+  measurementCount?: number;
+  onClearAllMeasurements?: () => void;
 }
 
-export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange, cameraAngle = 90, onCameraAngleChange, placedSpaces = [], onSaveProject, onClearCanvas, onLoadProject, onDragStart, onDragEnd }: SpacePaletteProps) {
+export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapIntervalChange, labelMode = 'text', onLabelModeChange, cameraAngle = 90, onCameraAngleChange, placedSpaces = [], onSaveProject, onClearCanvas, onLoadProject, onDragStart, onDragEnd, measureMode = false, onMeasureModeChange, measurementCount = 0, onClearAllMeasurements }: SpacePaletteProps) {
   const { componentThemes, colors } = useTheme();
   const theme = componentThemes.canvasPalette.light;
   const [spaces, setSpaces] = useState<SpaceDefinition[]>([]);
@@ -187,6 +191,40 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                   </button>
                   <span className="text-xs text-gray-600">Icon</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Measure Tool Toggle */}
+            <div>
+              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
+                <span>Measure Tool</span>
+                <span className="text-gray-500">{measureMode ? 'On' : 'Off'} {measurementCount > 0 && `(${measurementCount})`}</span>
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onMeasureModeChange?.(!measureMode)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                    measureMode
+                      ? 'bg-blue-500 text-white hover:bg-blue-600'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  <Ruler className="w-4 h-4" />
+                  {measureMode ? 'Measuring' : 'Measure'}
+                </button>
+                {measurementCount > 0 && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Clear all ${measurementCount} measurement(s)?`)) {
+                        onClearAllMeasurements?.();
+                      }
+                    }}
+                    className="px-3 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                    title="Clear All Measurements"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
             </div>
 
@@ -487,7 +525,14 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {/* My Build Section */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-800 mb-3">My Build</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-800">My Build</h3>
+                {placedSpaces.length > 0 && (
+                  <span className="text-sm font-bold text-blue-600">
+                    {placedSpaces.reduce((total, space) => total + (space.width * space.depth), 0).toLocaleString()} sf
+                  </span>
+                )}
+              </div>
 
               {placedSpaces.length === 0 ? (
                 <div className="text-xs text-gray-500 text-center py-4">
@@ -505,19 +550,20 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                       return acc;
                     }, {} as Record<string, typeof placedSpaces>)
                   ).map(([type, typeSpaces]) => {
-                    const typeTotal = typeSpaces.reduce((sum, space) => sum + (space.width * space.depth), 0);
+                    const spacesArray = typeSpaces as typeof placedSpaces;
+                    const typeTotal = spacesArray.reduce((sum: number, space: typeof placedSpaces[0]) => sum + (space.width * space.depth), 0);
                     return (
                       <div key={type} className="mb-3">
                         <div className="flex items-center justify-between text-xs font-semibold text-gray-700 mb-1">
                           <span className="capitalize">
-                            {SPACE_TYPE_COLORS[type as keyof typeof SPACE_TYPE_COLORS]?.label || type} ({typeSpaces.length})
+                            {SPACE_TYPE_COLORS[type as 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress']?.label || type} ({spacesArray.length})
                           </span>
-                          <span className="text-[10px] font-medium" style={{ color: getSpaceColor(type) }}>
+                          <span className="text-[10px] font-medium" style={{ color: getSpaceColor(type as 'technology' | 'trades' | 'band' | 'systems' | 'admin' | 'service' | 'generic' | 'egress') }}>
                             {typeTotal.toLocaleString()} sf
                           </span>
                         </div>
                         <div className="space-y-1">
-                          {typeSpaces.map((space) => (
+                          {spacesArray.map((space: typeof placedSpaces[0]) => (
                             <div key={space.instanceId} className="flex items-center gap-2 text-xs">
                               <div
                                 className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
@@ -540,15 +586,6 @@ export function SpacePalette({ isSidebarExpanded, snapInterval = 5, onSnapInterv
                       </div>
                     );
                   })}
-
-                  <div className="pt-3 border-t border-gray-200">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-semibold text-gray-800">Total</span>
-                      <span className="text-sm font-bold text-blue-600">
-                        {placedSpaces.reduce((total, space) => total + (space.width * space.depth), 0).toLocaleString()} sf
-                      </span>
-                    </div>
-                  </div>
                 </>
               )}
             </div>

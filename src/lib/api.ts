@@ -25,28 +25,40 @@ export interface ProjectSpace {
   rotation: number;
 }
 
+export interface Measurement {
+  id: string;
+  point1: { x: number; z: number };
+  point2: { x: number; z: number };
+}
+
 /**
  * Save a project to the database
  */
-export async function saveProject(project: Project, spaces: ProjectSpace[]): Promise<{ success: boolean; project_id?: string; error?: string }> {
+export async function saveProject(project: Project, spaces: ProjectSpace[], measurements: Measurement[] = []): Promise<{ success: boolean; project_id?: string; error?: string }> {
   try {
+    const payload = {
+      project: {
+        id: project.id,
+        name: project.name,
+        timestamp: project.timestamp,
+        spaceCount: project.space_count
+      },
+      spaces,
+      measurements
+    };
+
+    console.log('Sending to API:', payload);
+
     const response = await fetch(`${API_BASE_URL}/projects.php?action=save`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        project: {
-          id: project.id,
-          name: project.name,
-          timestamp: project.timestamp,
-          spaceCount: project.space_count
-        },
-        spaces
-      })
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
+    console.log('API response:', data);
 
     if (!response.ok) {
       return { success: false, error: data.error || 'Failed to save project' };
@@ -62,7 +74,7 @@ export async function saveProject(project: Project, spaces: ProjectSpace[]): Pro
 /**
  * Load a project from the database
  */
-export async function loadProject(projectId: string): Promise<{ success: boolean; project?: Project; spaces?: ProjectSpace[]; error?: string }> {
+export async function loadProject(projectId: string): Promise<{ success: boolean; project?: Project; spaces?: ProjectSpace[]; measurements?: Measurement[]; error?: string }> {
   try {
     const response = await fetch(`${API_BASE_URL}/projects.php?action=load&project_id=${encodeURIComponent(projectId)}`);
     const data = await response.json();
@@ -74,7 +86,8 @@ export async function loadProject(projectId: string): Promise<{ success: boolean
     return {
       success: true,
       project: data.project,
-      spaces: data.spaces
+      spaces: data.spaces,
+      measurements: data.measurements
     };
   } catch (error) {
     console.error('Error loading project:', error);

@@ -131,10 +131,33 @@ function loadProject() {
         }
         $stmt->close();
 
+        // Get project measurements
+        $stmt = $conn->prepare("SELECT measurement_id as id, point1_x, point1_z, point2_x, point2_z FROM project_measurements WHERE project_id = ?");
+        $stmt->bind_param('s', $project_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $measurements = [];
+        while ($row = $result->fetch_assoc()) {
+            $measurements[] = [
+                'id' => $row['id'],
+                'point1' => [
+                    'x' => (float)$row['point1_x'],
+                    'z' => (float)$row['point1_z']
+                ],
+                'point2' => [
+                    'x' => (float)$row['point2_x'],
+                    'z' => (float)$row['point2_z']
+                ]
+            ];
+        }
+        $stmt->close();
+
         echo json_encode([
             'success' => true,
             'project' => $project,
-            'spaces' => $spaces
+            'spaces' => $spaces,
+            'measurements' => $measurements
         ]);
 
     } catch (Exception $e) {
@@ -174,6 +197,9 @@ function saveProject() {
 
     $project = $data['project'];
     $spaces = $data['spaces'];
+    $measurements = isset($data['measurements']) ? $data['measurements'] : [];
+
+    error_log("Received data - measurements count: " . count($measurements));
 
     // Validate project fields
     if (!isset($project['id']) || !isset($project['name']) || !isset($project['timestamp']) || !isset($project['spaceCount'])) {
@@ -225,6 +251,34 @@ function saveProject() {
                 }
             }
             $stmt->close();
+        }
+
+        // Insert measurements
+        error_log("Measurements received: " . json_encode($measurements));
+        if (!empty($measurements)) {
+            error_log("Measurements array is not empty, inserting " . count($measurements) . " measurements");
+            $stmt = $conn->prepare("INSERT INTO project_measurements (project_id, measurement_id, point1_x, point1_z, point2_x, point2_z) VALUES (?, ?, ?, ?, ?, ?)");
+
+            foreach ($measurements as $measurement) {
+                error_log("Inserting measurement: " . json_encode($measurement));
+                $stmt->bind_param(
+                    'ssdddd',
+                    $project['id'],
+                    $measurement['id'],
+                    $measurement['point1']['x'],
+                    $measurement['point1']['z'],
+                    $measurement['point2']['x'],
+                    $measurement['point2']['z']
+                );
+
+                if (!$stmt->execute()) {
+                    throw new Exception('Failed to insert measurement: ' . $stmt->error);
+                }
+                error_log("Measurement inserted successfully");
+            }
+            $stmt->close();
+        } else {
+            error_log("Measurements array is empty or not set");
         }
 
         // Commit transaction

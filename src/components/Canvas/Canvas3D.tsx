@@ -1,10 +1,11 @@
 import { useRef, useState, useEffect } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTheme } from '../System/ThemeManager';
 import type { SpaceInstance } from '../../types';
 import { SpaceBlock3D } from './SpaceBlock3D';
+import { Measurement } from './Measurement';
 
 // Component to handle raycasting for drag preview
 function DragPreviewHandler({
@@ -48,6 +49,50 @@ function DragPreviewHandler({
   return null;
 }
 
+// Component to handle raycasting for measure preview
+function MeasurePreviewHandler({
+  onPositionUpdate,
+  snapInterval,
+  enabled
+}: {
+  onPositionUpdate: (pos: { x: number; z: number } | null) => void;
+  snapInterval: number;
+  enabled: boolean;
+}) {
+  const { camera, gl } = useThree();
+  const raycaster = useRef(new THREE.Raycaster());
+  const groundPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+
+  useEffect(() => {
+    if (!enabled) {
+      onPositionUpdate(null);
+      return;
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.current.setFromCamera(new THREE.Vector2(x, y), camera);
+
+      const intersection = new THREE.Vector3();
+      raycaster.current.ray.intersectPlane(groundPlane.current, intersection);
+
+      if (intersection) {
+        const snappedX = Math.round(intersection.x / snapInterval) * snapInterval;
+        const snappedZ = Math.round(intersection.z / snapInterval) * snapInterval;
+        onPositionUpdate({ x: snappedX, z: snappedZ });
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [camera, gl, snapInterval, enabled, onPositionUpdate]);
+
+  return null;
+}
+
 interface Canvas3DProps {
   width?: number;
   height?: number;
@@ -61,6 +106,13 @@ interface Canvas3DProps {
   labelMode?: 'text' | 'icon';
   cameraAngle?: 45 | 90;
   draggedSpace?: any;
+  selectedSpaceIds?: Set<string>;
+  onToggleSelection?: (instanceId: string) => void;
+  measureMode?: boolean;
+  measurePoints?: Array<{ x: number; z: number }>;
+  measurements?: Array<{ id: string; point1: { x: number; z: number }; point2: { x: number; z: number } }>;
+  onMeasureClick?: (x: number, z: number) => void;
+  onDeleteMeasurement?: (id: string) => void;
 }
 
 export function Canvas3D({
@@ -72,13 +124,21 @@ export function Canvas3D({
   snapInterval = 5,
   labelMode = 'text',
   cameraAngle = 90,
-  draggedSpace
+  draggedSpace,
+  selectedSpaceIds = new Set(),
+  onToggleSelection,
+  measureMode = false,
+  measurePoints = [],
+  measurements = [],
+  onMeasureClick,
+  onDeleteMeasurement
 }: Canvas3DProps) {
   const { componentThemes } = useTheme();
   componentThemes.canvasControls.light;
   const [isDraggingFromPalette, setIsDraggingFromPalette] = useState(false);
   const [isDraggingSpace, setIsDraggingSpace] = useState(false);
   const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
+  const [measurePreviewPosition, setMeasurePreviewPosition] = useState<{ x: number; z: number } | null>(null);
   const controlsRef = useRef<any>(null);
 
   // Calculate camera position based on angle
@@ -183,6 +243,15 @@ export function Canvas3D({
           />
         )}
 
+        {/* Measure preview position tracker */}
+        {measureMode && measurePoints.length === 1 && (
+          <MeasurePreviewHandler
+            onPositionUpdate={setMeasurePreviewPosition}
+            snapInterval={snapInterval}
+            enabled={true}
+          />
+        )}
+
         {/* Lighting */}
         <ambientLight intensity={1.2} />
         <directionalLight position={[50, 100, 50]} intensity={1.5} castShadow />
@@ -242,11 +311,56 @@ export function Canvas3D({
           <meshBasicMaterial color="#EF4444" />
         </mesh>
 
-        {/* Invisible ground plane for drag events */}
-        <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={false}>
+        {/* Invisible ground plane for drag events and measurements */}
+        <mesh
+          position={[0, 0, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          visible={false}
+          onClick={(e: ThreeEvent<MouseEvent>) => {
+            if (measureMode && onMeasureClick) {
+              e.stopPropagation();
+              // Snap to grid
+              const snappedX = Math.round(e.point.x / snapInterval) * snapInterval;
+              const snappedZ = Math.round(e.point.z / snapInterval) * snapInterval;
+              onMeasureClick(snappedX, snappedZ);
+            }
+          }}
+        >
           <planeGeometry args={[1000, 1000]} />
           <meshBasicMaterial />
         </mesh>
+
+        {/* Persistent measurements */}
+        {measurements.map((measurement) => (
+          <Measurement
+            key={measurement.id}
+            id={measurement.id}
+            point1={measurement.point1}
+            point2={measurement.point2}
+            onDelete={onDeleteMeasurement}
+          />
+        ))}
+
+        {/* Current measurement in progress */}
+        {measureMode && measurePoints.length > 0 && (
+          <>
+            {/* First point marker */}
+            <mesh position={[measurePoints[0].x, 0.5, measurePoints[0].z]}>
+              <sphereGeometry args={[1, 16, 16]} />
+              <meshBasicMaterial color="#3B82F6" />
+            </mesh>
+
+            {/* Live preview (after first point, before second click) */}
+            {measurePoints.length === 1 && measurePreviewPosition && (
+              <Measurement
+                id="preview"
+                point1={measurePoints[0]}
+                point2={measurePreviewPosition}
+                isPreview={true}
+              />
+            )}
+          </>
+        )}
 
         {/* Placed Spaces */}
         {placedSpaces.map((space) => (
@@ -255,6 +369,7 @@ export function Canvas3D({
             space={space}
             snapInterval={snapInterval}
             labelMode={labelMode}
+            isSelected={selectedSpaceIds.has(space.instanceId)}
             onDragStart={() => setIsDraggingSpace(true)}
             onDragEnd={() => setIsDraggingSpace(false)}
             onMove={(x, y, z) => {
@@ -270,6 +385,11 @@ export function Canvas3D({
             onDelete={() => {
               if (onSpaceDelete) {
                 onSpaceDelete(space.instanceId);
+              }
+            }}
+            onToggleSelection={() => {
+              if (onToggleSelection) {
+                onToggleSelection(space.instanceId);
               }
             }}
           />

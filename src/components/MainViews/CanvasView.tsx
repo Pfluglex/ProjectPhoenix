@@ -34,6 +34,10 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
   const [labelMode, setLabelMode] = useState<'text' | 'icon'>('text');
   const [cameraAngle, setCameraAngle] = useState<45 | 90>(90);
   const [showLoadModal, setShowLoadModal] = useState(false);
+  const [selectedSpaceIds, setSelectedSpaceIds] = useState<Set<string>>(new Set());
+  const [measureMode, setMeasureMode] = useState(false);
+  const [measurePoints, setMeasurePoints] = useState<Array<{ x: number; z: number }>>([]);
+  const [measurements, setMeasurements] = useState<Array<{ id: string; point1: { x: number; z: number }; point2: { x: number; z: number } }>>([]);
 
   // Save to localStorage whenever placedSpaces changes
   useEffect(() => {
@@ -85,11 +89,12 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
       rotation: space.rotation || 0,
     }));
 
-    // Save to database via API
-    const result = await saveProject(newProject, newSpaces);
+    // Save to database via API (now includes measurements)
+    console.log('Saving project with measurements:', measurements);
+    const result = await saveProject(newProject, newSpaces, measurements);
 
     if (result.success) {
-      alert(`Project "${projectName}" saved successfully!`);
+      alert(`Project "${projectName}" saved successfully with ${placedSpaces.length} space(s) and ${measurements.length} measurement(s)!`);
     } else {
       alert(`Failed to save project: ${result.error}`);
     }
@@ -97,6 +102,8 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
 
   const handleClearCanvas = () => {
     setPlacedSpaces([]);
+    setMeasurements([]);
+    setMeasurePoints([]);
   };
 
   const handleLoadProject = async (projectId: string) => {
@@ -128,15 +135,22 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         rotation: (s.rotation === 0 || s.rotation === 90 || s.rotation === 180 || s.rotation === 270) ? s.rotation : 0
       }));
 
-      // Confirm if replacing existing spaces
-      if (placedSpaces.length > 0) {
-        if (window.confirm(`This will replace ${placedSpaces.length} existing space(s) with ${loadedSpaces.length} loaded space(s). Continue?`)) {
+      // Load measurements if they exist
+      const loadedMeasurements = result.measurements || [];
+
+      // Confirm if replacing existing content
+      const totalExisting = placedSpaces.length + measurements.length;
+
+      if (totalExisting > 0) {
+        if (window.confirm(`This will replace ${placedSpaces.length} space(s) and ${measurements.length} measurement(s) with ${loadedSpaces.length} space(s) and ${loadedMeasurements.length} measurement(s). Continue?`)) {
           setPlacedSpaces(loadedSpaces);
-          alert(`Successfully loaded ${loadedSpaces.length} space(s)!`);
+          setMeasurements(loadedMeasurements);
+          alert(`Successfully loaded ${loadedSpaces.length} space(s) and ${loadedMeasurements.length} measurement(s)!`);
         }
       } else {
         setPlacedSpaces(loadedSpaces);
-        alert(`Successfully loaded ${loadedSpaces.length} space(s)!`);
+        setMeasurements(loadedMeasurements);
+        alert(`Successfully loaded ${loadedSpaces.length} space(s) and ${loadedMeasurements.length} measurement(s)!`);
       }
     } catch (error) {
       console.error('Error loading project:', error);
@@ -145,13 +159,41 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
   };
 
   const handleSpaceMove = (instanceId: string, x: number, y: number, z: number = 0) => {
-    setPlacedSpaces((prev) =>
-      prev.map((space) =>
-        space.instanceId === instanceId
-          ? { ...space, position: { x, y, z } }
-          : space
-      )
-    );
+    // If the moved space is selected and there are multiple selected spaces, move all of them
+    if (selectedSpaceIds.has(instanceId) && selectedSpaceIds.size > 1) {
+      // Find the space being dragged
+      const draggedSpace = placedSpaces.find(s => s.instanceId === instanceId);
+      if (!draggedSpace) return;
+
+      // Calculate the delta from the dragged space's current position
+      const deltaX = x - draggedSpace.position.x;
+      const deltaZ = z - draggedSpace.position.z;
+
+      // Move all selected spaces by the same delta
+      setPlacedSpaces((prev) =>
+        prev.map((space) =>
+          selectedSpaceIds.has(space.instanceId)
+            ? {
+                ...space,
+                position: {
+                  x: space.position.x + deltaX,
+                  y: space.position.y,
+                  z: space.position.z + deltaZ
+                }
+              }
+            : space
+        )
+      );
+    } else {
+      // Normal single space move
+      setPlacedSpaces((prev) =>
+        prev.map((space) =>
+          space.instanceId === instanceId
+            ? { ...space, position: { x, y, z } }
+            : space
+        )
+      );
+    }
   };
 
   const handleSpaceTransform = (
@@ -178,7 +220,73 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
 
   const handleSpaceDelete = (instanceId: string) => {
     setPlacedSpaces((prev) => prev.filter((space) => space.instanceId !== instanceId));
+    // Remove from selection if it was selected
+    setSelectedSpaceIds((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(instanceId);
+      return newSet;
+    });
   };
+
+  const handleToggleSelection = (instanceId: string) => {
+    setSelectedSpaceIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(instanceId)) {
+        newSet.delete(instanceId);
+      } else {
+        newSet.add(instanceId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedSpaceIds(new Set());
+  };
+
+  const handleMeasureClick = (x: number, z: number) => {
+    if (measurePoints.length === 0) {
+      // First point
+      setMeasurePoints([{ x, z }]);
+    } else if (measurePoints.length === 1) {
+      // Second point - save measurement and add second point to array
+      const newMeasurement = {
+        id: `measure_${Date.now()}`,
+        point1: measurePoints[0],
+        point2: { x, z }
+      };
+      setMeasurements((prev) => [...prev, newMeasurement]);
+      setMeasurePoints([...measurePoints, { x, z }]); // Keep both points to show completed state
+    } else if (measurePoints.length === 2) {
+      // Third click - start new measurement
+      setMeasurePoints([{ x, z }]);
+    }
+  };
+
+  const handleClearMeasurement = () => {
+    setMeasurePoints([]);
+  };
+
+  const handleDeleteMeasurement = (id: string) => {
+    setMeasurements((prev) => prev.filter(m => m.id !== id));
+  };
+
+  const handleClearAllMeasurements = () => {
+    setMeasurements([]);
+    setMeasurePoints([]);
+  };
+
+  // ESC key to clear selection and current measurement
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClearSelection();
+        handleClearMeasurement(); // Only clears current measurement, not all
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <div className="w-full h-full relative">
@@ -193,6 +301,13 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         labelMode={labelMode}
         cameraAngle={cameraAngle}
         draggedSpace={draggedSpace}
+        selectedSpaceIds={selectedSpaceIds}
+        onToggleSelection={handleToggleSelection}
+        measureMode={measureMode}
+        measurePoints={measurePoints}
+        measurements={measurements}
+        onMeasureClick={handleMeasureClick}
+        onDeleteMeasurement={handleDeleteMeasurement}
       />
       <SpacePalette
         isSidebarExpanded={isSidebarExpanded}
@@ -209,6 +324,10 @@ export function CanvasView({ isSidebarExpanded }: CanvasViewProps) {
         onClearCanvas={handleClearCanvas}
         onDragStart={setDraggedSpace}
         onDragEnd={() => setDraggedSpace(null)}
+        measureMode={measureMode}
+        onMeasureModeChange={setMeasureMode}
+        measurementCount={measurements.length}
+        onClearAllMeasurements={handleClearAllMeasurements}
       />
 
       {/* Load Project Modal */}

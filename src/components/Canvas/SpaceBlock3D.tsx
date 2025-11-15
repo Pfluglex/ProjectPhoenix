@@ -12,6 +12,7 @@ interface SpaceBlock3DProps {
   space: SpaceInstance;
   snapInterval: number;
   labelMode?: 'text' | 'icon';
+  isSelected?: boolean;
   onDragStart?: () => void;
   onDragEnd?: () => void;
   onMove?: (x: number, y: number, z: number) => void;
@@ -21,12 +22,12 @@ interface SpaceBlock3DProps {
     scale: { x: number; y: number; z: number }
   ) => void;
   onDelete?: () => void;
+  onToggleSelection?: () => void;
 }
 
-export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragStart, onDragEnd, onMove, onTransform, onDelete }: SpaceBlock3DProps) {
+export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', isSelected = false, onDragStart, onDragEnd, onMove, onTransform, onDelete, onToggleSelection }: SpaceBlock3DProps) {
   const meshRef = useRef<Mesh>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [controlsHovered, setControlsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -115,6 +116,11 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
         const snappedZ = snapToGrid(rawZ - zOffset) + zOffset;
 
         setTargetPosition([snappedX, 0, snappedZ]);
+
+        // Call onMove during drag to update group positions in real-time
+        if (onMove) {
+          onMove(snappedX, 0, snappedZ);
+        }
       }
     };
 
@@ -125,22 +131,16 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
         onDragEnd();
       }
 
-      // Calculate offset for spaces with odd number of snap intervals
-      // e.g., 45' space with 5' snap = 9 intervals (odd), needs 2.5' offset
+      // Final snap on release (already handled by continuous onMove calls during drag)
       const xIntervals = space.width / snapInterval;
       const zIntervals = space.depth / snapInterval;
       const xOffset = (xIntervals % 2 !== 0) ? snapInterval / 2 : 0;
       const zOffset = (zIntervals % 2 !== 0) ? snapInterval / 2 : 0;
 
-      // Snap the corner to grid, then add offset for center
       const snappedX = snapToGrid(targetPosition[0] - xOffset) + xOffset;
       const snappedZ = snapToGrid(targetPosition[2] - zOffset) + zOffset;
 
       setTargetPosition([snappedX, 0, snappedZ]);
-
-      if (onMove) {
-        onMove(snappedX, 0, snappedZ);
-      }
     };
 
     window.addEventListener('pointermove', handlePointerMove);
@@ -278,6 +278,13 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
     setShowControls(false);
   };
 
+  const handleMove = () => {
+    if (onToggleSelection) {
+      onToggleSelection();
+    }
+    setShowControls(false);
+  };
+
   const handleResize = () => {
     setIsResizing(true);
     setShowControls(false);
@@ -353,8 +360,6 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
         geometry={geometry}
         rotation={[-Math.PI / 2, 0, 0]} // Rotate to stand upright
         position={[0, totalHeight / 2, 0]} // Lift by half total height (including bevels) so base sits on ground
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
         onPointerDown={handlePointerDown}
         onContextMenu={(e) => {
           e.stopPropagation();
@@ -373,6 +378,24 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
           depthWrite={!isDragging}
         />
       </animated.mesh>
+
+      {/* Selection outline - blue glow when selected */}
+      {isSelected && (
+        <animated.mesh
+          geometry={geometry}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, totalHeight / 2, 0]}
+          scale={1.02} // Slightly larger to show as outline
+          renderOrder={1}
+        >
+          <meshBasicMaterial
+            color="#3B82F6"
+            transparent
+            opacity={0.4}
+            depthWrite={false}
+          />
+        </animated.mesh>
+      )}
 
       {/* Controls (appears on right-click) */}
       {(showControls || controlsHovered) && !isDragging && (
@@ -394,8 +417,29 @@ export function SpaceBlock3D({ space, snapInterval, labelMode = 'text', onDragSt
               onRotate={handleRotate}
               onDelete={handleDelete}
               onResize={handleResize}
+              onMove={handleMove}
+              isSelected={isSelected}
               isClosing={!showControls && controlsHovered}
             />
+          </div>
+        </Html>
+      )}
+
+      {/* Selection badge */}
+      {isSelected && (
+        <Html
+          position={[0, height + 10, 0]}
+          center
+          sprite
+          zIndexRange={[10, 10]}
+          pointerEvents="none"
+          style={{
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          <div className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-lg pointer-events-none select-none">
+            SELECTED
           </div>
         </Html>
       )}
