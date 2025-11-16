@@ -134,9 +134,8 @@ export function SpaceBlock3D({ space, snapInterval, currentLevel, labelMode = 't
   ]);
 
   // Animated position with spring physics
-  const { position, opacity, scale } = useSpring({
+  const { position, scale } = useSpring({
     position: targetPosition,
-    opacity: isDragging ? 0.3 : 1, // Ghosted when dragging
     scale: isDragging ? 0.9 : 1, // Shrink slightly when grabbed
     config: (key) => {
       if (key === 'scale') {

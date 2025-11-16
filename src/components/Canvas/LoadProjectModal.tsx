@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, Layers, Loader } from 'lucide-react';
-import { listProjects, type Project } from '../../lib/api';
+import { X, Calendar, Layers, Loader, Trash2 } from 'lucide-react';
+import { listProjects, deleteProject, type Project } from '../../lib/api';
 
 interface LoadProjectModalProps {
   isOpen: boolean;
@@ -40,6 +40,32 @@ export function LoadProjectModal({ isOpen, onClose, onSelectProject }: LoadProje
     }
   };
 
+  const handleDeleteProject = async (projectId: string, projectName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the project when clicking delete
+
+    if (!window.confirm(`Are you sure you want to delete "${projectName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const result = await deleteProject(projectId);
+      if (result.success) {
+        // If we deleted the selected project, clear the selection
+        if (selectedProjectId === projectId) {
+          setSelectedProjectId(null);
+        }
+        // Reload the project list
+        await loadProjects();
+        alert(`Project "${projectName}" deleted successfully!`);
+      } else {
+        alert(`Failed to delete project: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      alert('Error deleting project. Please try again.');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -75,7 +101,7 @@ export function LoadProjectModal({ isOpen, onClose, onSelectProject }: LoadProje
                   key={project.id}
                   onClick={() => setSelectedProjectId(project.id)}
                   className={`
-                    p-4 rounded-lg border-2 cursor-pointer transition-all
+                    p-4 rounded-lg border-2 cursor-pointer transition-all relative group
                     ${selectedProjectId === project.id
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
@@ -84,7 +110,16 @@ export function LoadProjectModal({ isOpen, onClose, onSelectProject }: LoadProje
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="text-lg font-semibold text-gray-800">{project.name}</h3>
-                    <span className="text-xs text-gray-400">#{project.id.slice(-6)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">#{project.id.slice(-6)}</span>
+                      <button
+                        onClick={(e) => handleDeleteProject(project.id, project.name, e)}
+                        className="p-1.5 rounded-md hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Delete project"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <div className="flex items-center gap-1">

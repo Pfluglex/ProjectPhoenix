@@ -1,7 +1,7 @@
 <?php
 /**
- * Simple Authentication API
- * Single user authentication for ProjectPhoenix
+ * Authentication API for ProjectPhoenix
+ * IMPORTANT: Update password hash before deploying!
  */
 
 header('Access-Control-Allow-Origin: *');
@@ -15,22 +15,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Simple single-user credentials
-// NOTE: For production, move these to environment variables
+// Authentication credentials
 define('AUTH_EMAIL', 'apps@pflugerarchitects.com');
-define('AUTH_PASSWORD', '123456');
+
+// IMPORTANT: Generate a new password hash before deploying!
+// Run: php -r "echo password_hash('your_secure_password', PASSWORD_DEFAULT);"
+// Then replace the hash below:
+define('AUTH_PASSWORD_HASH', '$2y$10$CHANGE_THIS_HASH_BEFORE_DEPLOYMENT');
+
+// For development only - remove in production
+define('DEV_PASSWORD', '123456'); // REMOVE THIS LINE IN PRODUCTION!
 
 /**
- * Login endpoint - validates credentials and returns a simple token
+ * Login endpoint
  */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
-
-    // Debug logging
-    error_log('Auth attempt - Received data: ' . json_encode($data));
-    error_log('Expected email: ' . AUTH_EMAIL);
-    error_log('Email match: ' . ($data['email'] === AUTH_EMAIL ? 'true' : 'false'));
-    error_log('Password match: ' . ($data['password'] === AUTH_PASSWORD ? 'true' : 'false'));
 
     if (!isset($data['email']) || !isset($data['password'])) {
         http_response_code(400);
@@ -39,8 +39,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Check credentials
-    if ($data['email'] === AUTH_EMAIL && $data['password'] === AUTH_PASSWORD) {
-        // Generate a simple session token (just base64 encoded timestamp + email)
+    $validLogin = false;
+
+    // Check production password (once hash is set)
+    if (strpos(AUTH_PASSWORD_HASH, 'CHANGE_THIS') === false) {
+        $validLogin = ($data['email'] === AUTH_EMAIL && password_verify($data['password'], AUTH_PASSWORD_HASH));
+    } else {
+        // Development fallback - REMOVE IN PRODUCTION
+        $validLogin = ($data['email'] === AUTH_EMAIL && $data['password'] === DEV_PASSWORD);
+    }
+
+    if ($validLogin) {
+        // Generate token
         $token = base64_encode(json_encode([
             'email' => AUTH_EMAIL,
             'timestamp' => time(),

@@ -174,7 +174,7 @@ export function PropertiesPanel({ isSidebarExpanded, onSidebarExpandedChange, pl
                       {Object.entries(spacesByType).map(([type, typeSpaces]) => {
                         const sectionId = `level-${level}-type-${type}`;
                         const isExpanded = expandedSections.has(sectionId);
-                        const typeTotal = typeSpaces.reduce((sum: number, space: typeof spacesArray[0]) => sum + (space.width * space.depth), 0);
+                        const typeTotal = (typeSpaces as any[]).reduce((sum: number, space: any) => sum + (space.width * space.depth), 0);
                         const typeLabel = SPACE_TYPE_COLORS[type as keyof typeof SPACE_TYPE_COLORS]?.label || type;
 
                         return (
@@ -192,13 +192,13 @@ export function PropertiesPanel({ isSidebarExpanded, onSidebarExpandedChange, pl
                                 )}
                                 <div
                                   className="w-2 h-2 rounded-full"
-                                  style={{ backgroundColor: getSpaceColor(type) }}
+                                  style={{ backgroundColor: getSpaceColor(type as any) }}
                                 />
                                 <span className="text-xs font-medium text-gray-700 capitalize">
                                   {typeLabel}
                                 </span>
                                 <span className="text-[10px] text-gray-500">
-                                  ({typeSpaces.length})
+                                  ({(typeSpaces as any[]).length})
                                 </span>
                               </div>
                               <span className="text-[10px] font-semibold text-gray-600">
@@ -217,7 +217,7 @@ export function PropertiesPanel({ isSidebarExpanded, onSidebarExpandedChange, pl
                                   className="overflow-hidden"
                                 >
                                   <div className="px-2 pb-1.5 space-y-1">
-                                    {typeSpaces.map((space: typeof spacesArray[0]) => (
+                                    {(typeSpaces as any[]).map((space: any) => (
                                       <div key={space.instanceId} className="flex items-center gap-2 text-xs pl-5">
                                         <div
                                           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"

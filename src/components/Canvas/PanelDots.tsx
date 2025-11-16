@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
-import { Library, Wrench, ScrollText } from 'lucide-react';
+import { Library, Wrench, ScrollText, Settings } from 'lucide-react';
 import { useState } from 'react';
 
-export type PanelType = 'library' | 'tools' | 'properties';
+export type PanelType = 'library' | 'tools' | 'properties' | 'settings';
 
 interface PanelDotsProps {
   activePanel: PanelType;
@@ -12,17 +12,19 @@ interface PanelDotsProps {
 const DOT_COLORS = {
   library: '#3B82F6',   // Blue
   tools: '#F59E0B',     // Amber/Yellow
-  properties: '#10B981' // Green
+  properties: '#10B981', // Green
+  settings: '#6B7280'   // Gray
 };
 
 const PANEL_ICONS = {
   library: Library,
   tools: Wrench,
-  properties: ScrollText
+  properties: ScrollText,
+  settings: Settings
 };
 
 export function PanelDots({ activePanel, onPanelChange }: PanelDotsProps) {
-  const panels: PanelType[] = ['library', 'tools', 'properties'];
+  const panels: PanelType[] = ['library', 'tools', 'properties', 'settings'];
   const [hoveredPanel, setHoveredPanel] = useState<PanelType | null>(null);
 
   return (

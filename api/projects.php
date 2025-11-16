@@ -31,12 +31,15 @@ switch ($action) {
     case 'save':
         saveProject();
         break;
+    case 'update':
+        updateProject();
+        break;
     case 'delete':
         deleteProject();
         break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Invalid action. Use: list, load, save, or delete']);
+        echo json_encode(['error' => 'Invalid action. Use: list, load, save, update, or delete']);
         break;
 }
 
@@ -137,7 +140,7 @@ function loadProject() {
         $stmt->close();
 
         // Get project measurements
-        $stmt = $conn->prepare("SELECT measurement_id as id, point1_x, point1_z, point2_x, point2_z FROM project_measurements WHERE project_id = ?");
+        $stmt = $conn->prepare("SELECT measurement_id as id, point1_x, point1_z, point2_x, point2_z, level FROM project_measurements WHERE project_id = ?");
         $stmt->bind_param('s', $project_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -153,7 +156,8 @@ function loadProject() {
                 'point2' => [
                     'x' => (float)$row['point2_x'],
                     'z' => (float)$row['point2_z']
-                ]
+                ],
+                'level' => (int)$row['level']
             ];
         }
         $stmt->close();
@@ -174,7 +178,7 @@ function loadProject() {
 }
 
 /**
- * Save a new project with its spaces
+ * Save or Update a project
  */
 function saveProject() {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -204,8 +208,6 @@ function saveProject() {
     $spaces = $data['spaces'];
     $measurements = isset($data['measurements']) ? $data['measurements'] : [];
 
-    error_log("Received data - measurements count: " . count($measurements));
-
     // Validate project fields
     if (!isset($project['id']) || !isset($project['name']) || !isset($project['timestamp']) || !isset($project['spaceCount'])) {
         http_response_code(400);
@@ -219,21 +221,51 @@ function saveProject() {
     $conn->begin_transaction();
 
     try {
-        // Insert project
-        $stmt = $conn->prepare("INSERT INTO projects (id, name, timestamp, space_count) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param('sssi', $project['id'], $project['name'], $project['timestamp'], $project['spaceCount']);
-
-        if (!$stmt->execute()) {
-            throw new Exception('Failed to insert project: ' . $stmt->error);
-        }
+        // Check if project exists
+        $stmt = $conn->prepare("SELECT id FROM projects WHERE id = ?");
+        $stmt->bind_param('s', $project['id']);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $projectExists = $result->num_rows > 0;
         $stmt->close();
+
+        if ($projectExists) {
+            // UPDATE existing project
+            $stmt = $conn->prepare("UPDATE projects SET name = ?, timestamp = ?, space_count = ? WHERE id = ?");
+            $stmt->bind_param('ssis', $project['name'], $project['timestamp'], $project['spaceCount'], $project['id']);
+
+            if (!$stmt->execute()) {
+                throw new Exception('Failed to update project: ' . $stmt->error);
+            }
+            $stmt->close();
+
+            // Delete old spaces and measurements
+            $stmt = $conn->prepare("DELETE FROM project_spaces WHERE project_id = ?");
+            $stmt->bind_param('s', $project['id']);
+            $stmt->execute();
+            $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM project_measurements WHERE project_id = ?");
+            $stmt->bind_param('s', $project['id']);
+            $stmt->execute();
+            $stmt->close();
+        } else {
+            // INSERT new project
+            $stmt = $conn->prepare("INSERT INTO projects (id, name, timestamp, space_count) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param('sssi', $project['id'], $project['name'], $project['timestamp'], $project['spaceCount']);
+
+            if (!$stmt->execute()) {
+                throw new Exception('Failed to insert project: ' . $stmt->error);
+            }
+            $stmt->close();
+        }
 
         // Insert spaces
         if (!empty($spaces)) {
             $stmt = $conn->prepare("INSERT INTO project_spaces (project_id, space_instance_id, template_id, space_id, name, width, depth, height, icon, type, position_x, position_y, position_z, rotation, level) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
             foreach ($spaces as $space) {
-                $level = isset($space['level']) ? $space['level'] : 1; // Default to level 1 for backward compatibility
+                $level = isset($space['level']) ? $space['level'] : 1;
 
                 $stmt->bind_param(
                     'sssssdddssddddi',
@@ -262,31 +294,28 @@ function saveProject() {
         }
 
         // Insert measurements
-        error_log("Measurements received: " . json_encode($measurements));
         if (!empty($measurements)) {
-            error_log("Measurements array is not empty, inserting " . count($measurements) . " measurements");
-            $stmt = $conn->prepare("INSERT INTO project_measurements (project_id, measurement_id, point1_x, point1_z, point2_x, point2_z) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt = $conn->prepare("INSERT INTO project_measurements (project_id, measurement_id, point1_x, point1_z, point2_x, point2_z, level) VALUES (?, ?, ?, ?, ?, ?, ?)");
 
             foreach ($measurements as $measurement) {
-                error_log("Inserting measurement: " . json_encode($measurement));
+                $level = isset($measurement['level']) ? $measurement['level'] : 1;
+
                 $stmt->bind_param(
-                    'ssdddd',
+                    'ssddddi',
                     $project['id'],
                     $measurement['id'],
                     $measurement['point1']['x'],
                     $measurement['point1']['z'],
                     $measurement['point2']['x'],
-                    $measurement['point2']['z']
+                    $measurement['point2']['z'],
+                    $level
                 );
 
                 if (!$stmt->execute()) {
                     throw new Exception('Failed to insert measurement: ' . $stmt->error);
                 }
-                error_log("Measurement inserted successfully");
             }
             $stmt->close();
-        } else {
-            error_log("Measurements array is empty or not set");
         }
 
         // Commit transaction
@@ -294,7 +323,7 @@ function saveProject() {
 
         echo json_encode([
             'success' => true,
-            'message' => 'Project saved successfully',
+            'message' => $projectExists ? 'Project updated successfully' : 'Project saved successfully',
             'project_id' => $project['id']
         ]);
 
@@ -332,16 +361,19 @@ function deleteProject() {
     $conn->begin_transaction();
 
     try {
-        // First, delete all spaces associated with this project
-        $stmt = $conn->prepare("DELETE FROM project_spaces WHERE project_id = ?");
+        // Delete measurements first
+        $stmt = $conn->prepare("DELETE FROM project_measurements WHERE project_id = ?");
         $stmt->bind_param('s', $project_id);
-
-        if (!$stmt->execute()) {
-            throw new Exception('Failed to delete project spaces: ' . $stmt->error);
-        }
+        $stmt->execute();
         $stmt->close();
 
-        // Then, delete the project itself
+        // Delete spaces
+        $stmt = $conn->prepare("DELETE FROM project_spaces WHERE project_id = ?");
+        $stmt->bind_param('s', $project_id);
+        $stmt->execute();
+        $stmt->close();
+
+        // Delete the project itself
         $stmt = $conn->prepare("DELETE FROM projects WHERE id = ?");
         $stmt->bind_param('s', $project_id);
 
@@ -372,5 +404,10 @@ function deleteProject() {
     }
 
     $conn->close();
+}
+
+// Alias for backwards compatibility
+function updateProject() {
+    saveProject();
 }
 ?>

@@ -3,7 +3,6 @@ import {
   Grid3x3,
   Library,
   BarChart3,
-  Settings,
   PanelLeftOpen,
   PanelLeftClose,
 } from "lucide-react";
@@ -45,51 +44,29 @@ export function AppSidebar({ activeView, onViewChange, isExpanded, onExpandedCha
       icon: BarChart3,
       description: "View efficiency metrics"
     },
-    {
-      title: "Settings",
-      view: "settings" as ActiveView,
-      icon: Settings,
-      description: "App settings"
-    },
   ];
 
   return (
     <>
-      {/* Collapse Button - Floating when expanded, only show if sidebar is visible */}
-      {isExpanded && !shouldHideSidebar && (
-        <motion.button
-          onClick={() => onExpandedChange(!isExpanded)}
-          className={`fixed h-8 w-8 rounded-lg ${sidebarTheme.button.bg} ${sidebarTheme.button.hover} flex items-center justify-center transition-all border ${sidebarTheme.button.border} shadow-md z-[3001]`}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0, left: '15.625rem', top: '2.25rem' }}
-          exit={{ opacity: 0, x: -10 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          aria-label="Toggle sidebar"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <PanelLeftClose className="h-4 w-4 text-gray-700" />
-        </motion.button>
-      )}
-
       <AnimatePresence>
         {!shouldHideSidebar && (
           <motion.aside
             className={`${sidebarTheme.container.bg} ${sidebarTheme.container.backdropBlur} fixed overflow-hidden flex flex-col shrink-0 m-4 rounded-2xl ${sidebarTheme.container.shadow} border ${sidebarTheme.container.border} z-[3000]`}
-            style={{ height: 'calc(100vh - 2rem)' }}
-            initial={{ opacity: 0, x: -20 }}
+            style={{ height: 'calc(100vh - 2rem)', pointerEvents: 'auto' }}
+            initial={{ opacity: 0, x: -20, pointerEvents: 'none' }}
             animate={{
               width: isExpanded ? 280 : 80,
               opacity: 1,
-              x: 0
+              x: 0,
+              pointerEvents: 'auto'
             }}
-            exit={{ opacity: 0, x: -20 }}
+            exit={{ opacity: 0, x: -20, pointerEvents: 'none' }}
             transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
           >
 
 
       {/* Header with Logo */}
-      <div className={`${isExpanded ? 'p-4' : 'p-2'} pb-3 border-b ${sidebarTheme.divider}`}>
+      <div className={`${isExpanded ? 'p-4' : 'p-2'} pb-3 border-b ${sidebarTheme.divider} space-y-3`}>
         <div className="flex items-center justify-center">
           <div className="flex items-center gap-3 w-full">
             <div className="flex items-center justify-center flex-shrink-0">
@@ -112,6 +89,26 @@ export function AppSidebar({ activeView, onViewChange, isExpanded, onExpandedCha
               )}
             </AnimatePresence>
           </div>
+        </div>
+
+        {/* Toggle Button */}
+        <div className={`w-full flex items-center justify-center`}>
+          <motion.button
+            onClick={() => onExpandedChange(!isExpanded)}
+            className={`flex items-center justify-center ${sidebarTheme.button.bg} ${sidebarTheme.button.hover} rounded-lg border ${sidebarTheme.button.border} transition-all ${isExpanded ? 'px-4 py-2 gap-2' : 'h-10 w-10'}`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            {isExpanded ? (
+              <>
+                <PanelLeftClose className="h-4 w-4 text-gray-700" />
+                <span className="text-xs font-medium text-gray-700">Collapse</span>
+              </>
+            ) : (
+              <PanelLeftOpen className="h-4 w-4 text-gray-700" />
+            )}
+          </motion.button>
         </div>
       </div>
 

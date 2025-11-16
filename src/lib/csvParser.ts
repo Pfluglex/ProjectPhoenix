@@ -89,7 +89,8 @@ export function createSpaceInstance(
     height: definition.height,
     rotation: 0,
     type: definition.type,
-    icon: definition.icon
+    icon: definition.icon,
+    level: 1
   };
 }
 

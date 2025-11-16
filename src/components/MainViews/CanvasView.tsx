@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Canvas3D } from '../Canvas/Canvas3D';
-import { LibraryPanel } from '../Canvas/LibraryPanel';
-import { ToolsPanel } from '../Canvas/ToolsPanel';
-import { PropertiesPanel } from '../Canvas/PropertiesPanel';
+import { UnifiedPanel } from '../Canvas/UnifiedPanel';
+import { LibraryContent } from '../Canvas/panels/LibraryContent';
+import { ToolsContent } from '../Canvas/panels/ToolsContent';
+import { PropertiesContent } from '../Canvas/panels/PropertiesContent';
+import { SettingsContent } from '../Canvas/panels/SettingsContent';
 import { LoadProjectModal } from '../Canvas/LoadProjectModal';
 import type { PanelType } from '../Canvas/PanelDots';
 import type { SpaceInstance } from '../../types';
@@ -16,11 +18,13 @@ interface CanvasViewProps {
 const TEMP_PROJECT_KEY = 'phoenix_temp_project';
 
 export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: CanvasViewProps) {
-  const [canvasState, setCanvasState] = useState({
+  const [, setCanvasState] = useState({
     position: { x: 0, y: 0 },
     zoom: 1.5,
   });
   const [draggedSpace, setDraggedSpace] = useState<any>(null); // Track space being dragged from palette
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null); // Track if we're editing an existing project
+  const [currentProjectName, setCurrentProjectName] = useState<string>(''); // Track the current project name
   const [placedSpaces, setPlacedSpaces] = useState<SpaceInstance[]>(() => {
     // Load from localStorage on initial mount
     try {
@@ -121,47 +125,118 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
   };
 
   const handleSaveProject = async () => {
-    const projectName = prompt('Enter a name for this project:');
-    if (!projectName) return;
+    // Get the project name from localStorage config
+    const savedConfig = localStorage.getItem('project_config');
+    let projectName = currentProjectName || 'Untitled Project';
+    if (savedConfig) {
+      try {
+        const config = JSON.parse(savedConfig);
+        projectName = config.projectName || projectName;
+      } catch (error) {
+        console.error('Error reading project config:', error);
+      }
+    }
 
-    const projectId = `proj_${Date.now()}`;
     const timestamp = new Date().toISOString();
 
-    // Create project object
-    const newProject: Project = {
-      id: projectId,
-      name: projectName,
-      timestamp: timestamp,
-      space_count: placedSpaces.length,
-    };
+    // Check if we're updating an existing project or creating a new one
+    if (currentProjectId) {
+      // UPDATE existing project
+      console.log('Updating existing project:', currentProjectId);
 
-    // Create spaces array
-    const newSpaces: ProjectSpace[] = placedSpaces.map(space => ({
-      project_id: projectId,
-      space_instance_id: space.instanceId,
-      template_id: space.templateId,
-      id: space.id,
-      name: space.name,
-      width: space.width,
-      depth: space.depth,
-      height: space.height,
-      icon: space.icon,
-      type: space.type,
-      position_x: space.position.x,
-      position_y: space.position.y,
-      position_z: space.position.z,
-      rotation: space.rotation || 0,
-      level: space.level || 1, // Default to level 1 if not set
-    }));
+      const updatedProject: Project = {
+        id: currentProjectId,
+        name: projectName,
+        timestamp: timestamp,
+        space_count: placedSpaces.length,
+      };
 
-    // Save to database via API (now includes measurements)
-    console.log('Saving project with measurements:', measurements);
-    const result = await saveProject(newProject, newSpaces, measurements);
+      // Transform SpaceInstance to ProjectSpace format for saving
+      const updatedSpaces: ProjectSpace[] = placedSpaces.map(space => ({
+        project_id: currentProjectId,
+        space_instance_id: space.instanceId,
+        template_id: space.templateId,
+        id: space.id,
+        name: space.name,
+        width: space.width,
+        depth: space.depth,
+        height: space.height,
+        icon: space.icon,
+        type: space.type,
+        position_x: space.position.x,
+        position_y: space.position.y,
+        position_z: space.position.z || 0,
+        rotation: space.rotation || 0,
+        level: space.level || 1,
+      }));
 
-    if (result.success) {
-      alert(`Project "${projectName}" saved successfully with ${placedSpaces.length} space(s) and ${measurements.length} measurement(s)!`);
+      // Save/update to database
+      const result = await saveProject(updatedProject, updatedSpaces, measurements);
+
+      if (result.success) {
+        setCurrentProjectName(projectName);
+        alert(`Project "${projectName}" updated successfully with ${placedSpaces.length} space(s) and ${measurements.length} measurement(s)!`);
+      } else {
+        alert(`Failed to update project: ${result.error}`);
+      }
     } else {
-      alert(`Failed to save project: ${result.error}`);
+      // CREATE new project - ask for a name if not set
+      if (!projectName || projectName === 'Untitled Project') {
+        projectName = prompt('Enter a name for this new project:') || 'Untitled Project';
+        if (!projectName) return;
+
+        // Save the new name to localStorage config
+        if (savedConfig) {
+          try {
+            const config = JSON.parse(savedConfig);
+            config.projectName = projectName;
+            localStorage.setItem('project_config', JSON.stringify(config));
+          } catch (error) {
+            console.error('Error updating project config:', error);
+          }
+        }
+      }
+
+      const projectId = `proj_${Date.now()}`;
+
+      const newProject: Project = {
+        id: projectId,
+        name: projectName,
+        timestamp: timestamp,
+        space_count: placedSpaces.length,
+      };
+
+      // Create spaces array
+      const newSpaces: ProjectSpace[] = placedSpaces.map(space => ({
+        project_id: projectId,
+        space_instance_id: space.instanceId,
+        template_id: space.templateId,
+        id: space.id,
+        name: space.name,
+        width: space.width,
+        depth: space.depth,
+        height: space.height,
+        icon: space.icon,
+        type: space.type,
+        position_x: space.position.x,
+        position_y: space.position.y,
+        position_z: space.position.z,
+        rotation: space.rotation || 0,
+        level: space.level || 1,
+      }));
+
+      // Save to database
+      console.log('Creating new project with measurements:', measurements);
+      const result = await saveProject(newProject, newSpaces, measurements);
+
+      if (result.success) {
+        // Track as current project for future updates
+        setCurrentProjectId(projectId);
+        setCurrentProjectName(projectName);
+        alert(`New project "${projectName}" created successfully with ${placedSpaces.length} space(s) and ${measurements.length} measurement(s)!`);
+      } else {
+        alert(`Failed to save project: ${result.error}`);
+      }
     }
   };
 
@@ -170,6 +245,9 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
     setPlacedSpaces([]);
     setMeasurements([]);
     setMeasurePoints([]);
+    // Reset project tracking - we're starting fresh
+    setCurrentProjectId(null);
+    setCurrentProjectName('');
   };
 
   const handleLoadProject = async (projectId: string) => {
@@ -180,6 +258,22 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
       if (!result.success || !result.spaces) {
         alert(`Failed to load project: ${result.error}`);
         return;
+      }
+
+      // Set current project info for editing
+      setCurrentProjectId(projectId);
+      setCurrentProjectName(result.project?.name || 'Untitled Project');
+
+      // Update localStorage with project name
+      const savedConfig = localStorage.getItem('project_config');
+      if (savedConfig) {
+        try {
+          const config = JSON.parse(savedConfig);
+          config.projectName = result.project?.name || 'Untitled Project';
+          localStorage.setItem('project_config', JSON.stringify(config));
+        } catch (error) {
+          console.error('Error updating project config:', error);
+        }
       }
 
       // Convert to SpaceInstance format
@@ -212,12 +306,12 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
         if (window.confirm(`This will replace ${placedSpaces.length} space(s) and ${measurements.length} measurement(s) with ${loadedSpaces.length} space(s) and ${loadedMeasurements.length} measurement(s). Continue?`)) {
           setPlacedSpaces(loadedSpaces);
           setMeasurements(loadedMeasurements);
-          alert(`Successfully loaded ${loadedSpaces.length} space(s) and ${loadedMeasurements.length} measurement(s)!`);
+          alert(`Successfully loaded project "${result.project?.name}" with ${loadedSpaces.length} space(s) and ${loadedMeasurements.length} measurement(s)!`);
         }
       } else {
         setPlacedSpaces(loadedSpaces);
         setMeasurements(loadedMeasurements);
-        alert(`Successfully loaded ${loadedSpaces.length} space(s) and ${loadedMeasurements.length} measurement(s)!`);
+        alert(`Successfully loaded project "${result.project?.name}" with ${loadedSpaces.length} space(s) and ${loadedMeasurements.length} measurement(s)!`);
       }
     } catch (error) {
       console.error('Error loading project:', error);
@@ -399,62 +493,62 @@ export function CanvasView({ isSidebarExpanded, onSidebarExpandedChange }: Canva
         showMeasurements={showMeasurements}
       />
 
-      {/* Library Panel */}
-      <LibraryPanel
+      {/* Unified Panel with dynamic content */}
+      <UnifiedPanel
         isSidebarExpanded={isSidebarExpanded}
         onSidebarExpandedChange={onSidebarExpandedChange}
-        onDragStart={setDraggedSpace}
-        onDragEnd={() => setDraggedSpace(null)}
         activePanel={activePanel}
         onPanelChange={setActivePanel}
-      />
-
-      {/* Tools Panel */}
-      <ToolsPanel
-        isSidebarExpanded={isSidebarExpanded}
-        onSidebarExpandedChange={onSidebarExpandedChange}
-        snapInterval={snapInterval}
-        onSnapIntervalChange={setSnapInterval}
-        currentLevel={currentLevel}
-        onLevelChange={setCurrentLevel}
-        labelMode={labelMode}
-        onLabelModeChange={setLabelMode}
-        cameraAngle={cameraAngle}
-        onCameraAngleChange={setCameraAngle}
-        placedSpaces={placedSpaces}
-        onSaveProject={handleSaveProject}
-        onLoadProject={() => setShowLoadModal(true)}
-        onClearCanvas={handleClearCanvas}
-        onUndo={handleUndo}
-        canUndo={historyIndex > 0}
-        measureMode={measureMode}
-        onMeasureModeChange={setMeasureMode}
-        measurementCount={measurements.length}
-        onClearAllMeasurements={handleClearAllMeasurements}
-        presentationMode={presentationMode}
-        onPresentationModeChange={setPresentationMode}
-        activePanel={activePanel}
-        onPanelChange={setActivePanel}
-        timeOfDay={timeOfDay}
-        onTimeOfDayChange={setTimeOfDay}
-        monthOfYear={monthOfYear}
-        onMonthOfYearChange={setMonthOfYear}
-        showGrid={showGrid}
-        onShowGridChange={setShowGrid}
-        showLabels={showLabels}
-        onShowLabelsChange={setShowLabels}
-        showMeasurements={showMeasurements}
-        onShowMeasurementsChange={setShowMeasurements}
-      />
-
-      {/* Properties Panel */}
-      <PropertiesPanel
-        isSidebarExpanded={isSidebarExpanded}
-        onSidebarExpandedChange={onSidebarExpandedChange}
-        placedSpaces={placedSpaces}
-        activePanel={activePanel}
-        onPanelChange={setActivePanel}
-      />
+      >
+        {activePanel === 'library' && (
+          <LibraryContent
+            onDragStart={setDraggedSpace}
+            onDragEnd={() => setDraggedSpace(null)}
+          />
+        )}
+        {activePanel === 'tools' && (
+          <ToolsContent
+            snapInterval={snapInterval}
+            onSnapIntervalChange={setSnapInterval}
+            currentLevel={currentLevel}
+            onLevelChange={setCurrentLevel}
+            labelMode={labelMode}
+            onLabelModeChange={setLabelMode}
+            cameraAngle={cameraAngle}
+            onCameraAngleChange={setCameraAngle}
+            placedSpaces={placedSpaces}
+            onSaveProject={handleSaveProject}
+            onLoadProject={() => setShowLoadModal(true)}
+            onClearCanvas={handleClearCanvas}
+            onUndo={handleUndo}
+            canUndo={historyIndex > 0}
+            measureMode={measureMode}
+            onMeasureModeChange={setMeasureMode}
+            measurementCount={measurements.length}
+            onClearAllMeasurements={handleClearAllMeasurements}
+            presentationMode={presentationMode}
+            onPresentationModeChange={setPresentationMode}
+            timeOfDay={timeOfDay}
+            onTimeOfDayChange={setTimeOfDay}
+            monthOfYear={monthOfYear}
+            onMonthOfYearChange={setMonthOfYear}
+            showGrid={showGrid}
+            onShowGridChange={setShowGrid}
+            showLabels={showLabels}
+            onShowLabelsChange={setShowLabels}
+            showMeasurements={showMeasurements}
+            onShowMeasurementsChange={setShowMeasurements}
+          />
+        )}
+        {activePanel === 'properties' && (
+          <PropertiesContent
+            placedSpaces={placedSpaces}
+          />
+        )}
+        {activePanel === 'settings' && (
+          <SettingsContent />
+        )}
+      </UnifiedPanel>
 
       {/* Load Project Modal */}
       <LoadProjectModal

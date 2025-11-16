@@ -1,4 +1,4 @@
-import { RotateCw, Trash2, Maximize2, Move, ChevronsUp, Layers } from 'lucide-react';
+import { RotateCw, Trash2, Maximize2, Move, Layers } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface SpaceControlsProps {
@@ -12,7 +12,7 @@ interface SpaceControlsProps {
   isClosing?: boolean;
 }
 
-export function SpaceControls({ onRotate, onDelete, onResize, onMove, onChangeHeight, onChangeLevel, isSelected = false, isClosing = false }: SpaceControlsProps) {
+export function SpaceControls({ onRotate, onDelete, onResize, onMove, onChangeLevel, isSelected = false, isClosing = false }: SpaceControlsProps) {
   const radius = 45; // Distance from center
   const buttonSize = 34; // Size of each button
 

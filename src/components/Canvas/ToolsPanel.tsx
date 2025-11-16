@@ -76,7 +76,7 @@ export function ToolsPanel({
   showMeasurements = true,
   onShowMeasurementsChange,
 }: ToolsPanelProps) {
-  const { componentThemes, colors } = useTheme();
+  const { componentThemes } = useTheme();
   const theme = componentThemes.canvasPalette.light;
 
   // Helper to format hour display (12-hour format with AM/PM)
